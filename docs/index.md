@@ -43,32 +43,31 @@
 
 ## In Progress (🔄)
 
+### Phase 3: Event Sourcing Infrastructure
+- ✅ **app/backend/src/infra/EventStore.ts** — Append-only log with optimistic locking via `UNIQUE(aggregate_id, version)` constraint, `append(command, events)`, `getEventsFor(aggregateId)`
+- ✅ **app/backend/src/infra/CommandBus.ts** — Command dispatch with PermissionSpec validation, handler registry, OptimisticConcurrencyError propagation
+- ✅ **app/backend/src/infra/EventBus.ts** — In-memory pub/sub (MVP; Redis integration Phase 5)
+- ✅ **app/backend/src/infra/handlers/** — Three CommandHandlers (CreateAlertRuleHandler, AcknowledgeAlertHandler, UpdatePeerStatusHandler)
+- ✅ **app/backend/src/infra/__tests__/** — Full unit test coverage (EventStore, CommandBus, EventBus, error scenarios)
+- ✅ **app/backend/src/infra/index.ts** — Barrel file exporting public interfaces
+- ✅ **docs/features/event-sourcing/plan.md** — Complete design documentation
+
+**Status:** Phase 3 infrastructure complete on `feature/event-sourcing` branch. All modules SOLID-checked, TypeScript strict mode passes, ready for Phase 4 (RuleEngine).
+
+---
+
 ## Next Steps (TODO)
 
-Follow the mandatory order per the architecture roadmap:
+### Phase 4: Rule Engine (Next)
 
-### Phase 3: EventStore, CommandBus, EventBus
+- **RuleEngine.ts** — Chain of Responsibility pattern
+  - Subscribes to EventBus, evaluates events against active alert rules
+  - Each condition type (fee spike, tx size, RBF) is a Strategy handler
+  - Produces AlertTriggered or UpdatePeerStatus commands if condition met
 
-1. **EventStore.ts** — Event sourcing heart
-   - `append(command, events)` — persists events with optimistic locking via version/OptimisticConcurrencyError
-   - `getEventsFor(aggregateId)` — reconstructs state by replaying events
-   - Handles the CommandBus → EventStore → EventBus publish flow
-
-2. **CommandBus.ts** — Command dispatch and routing
-   - `dispatch(command)` → validate permissions → find handler → execute → emit domain events
-   - Handlers registered at boot (dependency injection)
-   - Payload validation (mitigates JSONB flexibility risk)
-
-3. **EventBus.ts** — Pub/Sub via Redis, fan-out of domain events
-   - Listens to EventStore.append, publishes to subscribers
-   - Used by RuleEngine, frontend subscriptions, audit trail
-
-### Phase 4: Rule Engine
-
-4. **RuleEngine.ts** — Chain of Responsibility + Strategy
-   - Evaluates domain events against alert rules
-   - Each condition type (fee spike, tx size, RBF) is a Strategy handler
-   - `AlertRuleBuilder` — fluent API for building rules
+- **AlertRuleBuilder.ts** — Fluent API
+  - DSL for building and combining rule conditions
+  - Registers with RuleEngine
 
 ### Phase 5: Backend API & Frontend Integration
 

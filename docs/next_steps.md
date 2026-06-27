@@ -1,6 +1,8 @@
-# Next Steps — Phase 3 & Beyond
+# Next Steps — Phase 4 & Beyond
 
 This doc maps the immediate next work in the mandatory order, with rough scope and key decisions for each phase.
+
+**Last Updated:** 2026-06-27 — Phase 3 complete, Phase 4 next
 
 ---
 
@@ -32,17 +34,42 @@ This doc maps the immediate next work in the mandatory order, with rough scope a
 - `db` singleton client (pooled PostgreSQL via Drizzle)
 - All domain types exported from `app/backend/src/domain/` for reuse
 
+**What's available for Phase 4:**
+- Complete event sourcing infrastructure (EventStore, CommandBus, EventBus)
+- Three command handlers (CreateAlertRule, AcknowledgeAlert, UpdatePeerStatus)
+- Full unit test coverage with mocks
+- Permission validation (PermissionSpec) guarding all commands
+- Optimistic locking working (detects concurrent aggregate updates)
+
 **What's still TODO:**
-- EventStore (Phase 3 builds this)
-- CommandBus (Phase 3 builds this)
-- EventBus (Phase 3 builds this)
 - RuleEngine (Phase 4)
+- tRPC integration (Phase 5)
+- Frontend (Phase 5)
 
 ---
 
-## Phase 3: EventStore, CommandBus, EventBus (Next)
+## Phase 3: Event Sourcing Infrastructure (✅ Complete)
 
-Create `feature/event-sourcing` off `main`. Order: EventStore → CommandBus → EventBus.
+**Status:** Done on `feature/event-sourcing` branch (2026-06-27).
+
+**Deliverables:**
+- ✅ `app/backend/src/infra/EventStore.ts` — Append-only log, optimistic locking, publishes to EventBus
+- ✅ `app/backend/src/infra/CommandBus.ts` — Command dispatch, permission validation, handler routing
+- ✅ `app/backend/src/infra/EventBus.ts` — In-memory pub/sub (Phase 5 adds Redis)
+- ✅ `app/backend/src/infra/handlers/` — Three handlers (CreateAlertRule, AcknowledgeAlert, UpdatePeerStatus)
+- ✅ `app/backend/src/infra/__tests__/` — Full unit tests (EventStore, CommandBus, EventBus)
+- ✅ `docs/features/event-sourcing/plan.md` — Complete design documentation
+- ✅ TypeScript strict mode passes, all SOLID checks pass
+
+**Key design decisions locked in:**
+- EventStore publishes to EventBus after successful append (fire-and-forget)
+- CommandBus validates PermissionSpec before dispatch, propagates OptimisticConcurrencyError to caller
+- Handlers registered at boot via dependency injection (not service locator)
+- In-memory pub/sub MVP, ready for Redis upgrade (Phase 5)
+
+---
+
+### OLD: Phase 3 Technical Details (for reference)
 
 ### EventStore.ts — Event Sourcing Heart
 
@@ -123,23 +150,43 @@ export class OptimisticConcurrencyError extends Error {}
 
 ---
 
-## Phase 4: Rule Engine
+## Phase 4: Rule Engine (Next)
 
----
+**Why:** evaluates domain events (from EventBus) against configured alert rules,
+produces commands (CreateAlertRule aftermath → rules active → event triggers command).
+Bridges event sourcing (Phase 3) and automation (Phase 5 exposes to UI).
 
-### RuleEngine.ts, AlertRuleBuilder.ts, handlers/
+### RuleEngine.ts — Chain of Responsibility + Strategy
 
-**RuleEngine:** Chain of Responsibility evaluating events against rules
+**Key decisions:**
+- **subscribe(eventBus):** registers for all domain events at startup
+- **evaluateEvent(event):** runs event through all active rules, dispatches command if condition met
+- **Handlers:** Strategy pattern for each condition type (fee spike, tx size, RBF, peer count)
+- **Error handling:** if rule evaluation fails, logs + continues (doesn't crash event flow)
 
-**AlertRuleBuilder:** fluent API to build rules
-```typescript
-new AlertRuleBuilder()
-  .whenFeeSpike(20) // % threshold
-  .whenTxSize(50_000) // vbytes
-  .triggerAlert('fee-alert-1')
-```
+**Module:** `app/backend/src/infra/RuleEngine.ts`
 
-**Handlers:** Strategy pattern for each condition type (fee, tx size, RBF)
+**Dependency injection:** CommandBus (to dispatch generated commands), EventBus (to subscribe)
+
+**Tests planned:**
+- Rule evaluation: fee spike condition triggers AlertTriggered command
+- Multiple rules: event matches multiple rules, all trigger
+- Error isolation: one rule fails, others still evaluate
+- Inactive rules: skipped
+
+### AlertRuleBuilder.ts — Fluent API
+
+**Key decisions:**
+- DSL for building rules: `new AlertRuleBuilder().whenFeeSpike(20).whenTxSize(50_000).triggerCommand('...')`
+- Compiles to internal Rule representation (condition + action)
+- Validates configuration (threshold ranges, command type valid)
+
+**Module:** `app/backend/src/infra/AlertRuleBuilder.ts`
+
+**Tests planned:**
+- Builder chaining works
+- Validation: rejects invalid thresholds
+- Compilation: produces valid Rule object
 
 ---
 
