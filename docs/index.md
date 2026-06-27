@@ -26,31 +26,22 @@
 
 **Status:** First vertical slice complete on `feature/bitcoin-node-integration` branch. Validated against real Bitcoin node. Mempool empty (node mid-IBD) — re-verify `tx:added`/`fee:spike` once node is synced.
 
+### Phase 2: Database Schema & Domain Layer
+- ✅ **app/infra/docker-compose.yml** — PostgreSQL 16 with health checks and persistent volume
+- ✅ **app/infra/schema.ts** — Drizzle ORM: users, events (append-only), alerts, operations_log, peers_status, rule_definitions
+- ✅ **app/backend/src/domain/types.ts** — User, Alert, Role, AggregateType shared vocabulary
+- ✅ **app/backend/src/domain/events/** — DomainEvent base class + subclasses (MemPoolFeeSpike, AlertTriggered, AlertAcknowledged, PeerConnected, PeerDisconnected, NewBlockMined, TransactionDetected)
+- ✅ **app/backend/src/domain/commands/** — Command base class + subclasses (CreateAlertRule, AcknowledgeAlert, UpdatePeerStatus)
+- ✅ **app/backend/src/domain/specs/PermissionSpec.ts** — Authorization rules (ADMIN, OPERATOR, VIEWER roles)
+- ✅ **app/backend/src/db/index.ts** — Drizzle client, connection pool, health checks, graceful shutdown
+- ✅ **app/backend/drizzle.config.ts** — Migration config
+- ✅ **docs/features/database-schema-and-domain/plan.md, implementation.md, review.md** — Complete documentation
+
+**Status:** Phase 2 complete on `feature/schema-and-domain` branch. All domain types, database schema, and tooling ready. TypeScript strict mode passes.
+
 ---
 
 ## In Progress (🔄)
-
-### Phase 2: Database Schema & Domain Layer
-
-2. ✅ **app/infra/** — Docker PostgreSQL infrastructure
-   - `docker-compose.yml`: PostgreSQL 16 container with health checks, persistent volume
-   - `schema.ts`: Drizzle ORM definition for `users`, `events`, `alerts`, `operations_log`, `peers_status`, `rule_definitions`
-   - Migrations auto-generated from schema (zero manual SQL)
-   - Postgres read to start database: `docker-compose up -d`
-
-3. ✅ **app/backend/src/domain/** — Event sourcing vocabulary
-   - `DomainEvent` base class with typed subclasses (MemPoolFeeSpike, AlertTriggered, PeerConnected, NewBlockMined)
-   - `Command` base class with subclasses (CreateAlertRule, AcknowledgeAlert, UpdatePeerStatus)
-   - `PermissionSpec` — authorization rules (reusable in CommandBus and frontend)
-   - All types exported for shared use (backend + frontend packages)
-
-4. ✅ **app/backend/src/db/** — Database connectivity
-   - Drizzle client (singleton), connection pool (pg.Pool), health checks
-   - `drizzle.config.ts` points to schema for migrations
-
-**Status:** Phase 2 complete on `feature/schema-and-domain` branch. Schema compiles, database runs, domain types export.
-
----
 
 ## Next Steps (TODO)
 

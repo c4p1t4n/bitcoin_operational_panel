@@ -9,12 +9,16 @@ This doc maps the immediate next work in the mandatory order, with rough scope a
 **Status:** Done on `feature/schema-and-domain` branch (2026-06-27).
 
 **Deliverables:**
-- ✅ `app/infra/docker-compose.yml` — PostgreSQL running, persistent volume
-- ✅ `app/infra/schema.ts` — Drizzle ORM: users, events (append-only), alerts, operations_log, peers_status, rule_definitions
-- ✅ `app/backend/src/domain/` — DomainEvent, Command, PermissionSpec base classes + subclasses
-- ✅ `app/backend/src/db/` — Drizzle client, health checks, connection pool
-- ✅ Migrations auto-generated, schema applies to database
-- ✅ TypeScript strict mode passes
+- ✅ `app/infra/docker-compose.yml` — PostgreSQL 16, persistent volume, health checks
+- ✅ `app/infra/schema.ts` — Drizzle ORM: users, events, alerts, operations_log, peers_status, rule_definitions
+- ✅ `app/backend/src/domain/types.ts` — User, Alert, Role, AggregateType shared types
+- ✅ `app/backend/src/domain/events/DomainEvent.ts` — base class + 7 subclasses (MemPoolFeeSpike, AlertTriggered, AlertAcknowledged, PeerConnected, PeerDisconnected, NewBlockMined, TransactionDetected)
+- ✅ `app/backend/src/domain/commands/Command.ts` — base class + 3 subclasses (CreateAlertRule, AcknowledgeAlert, UpdatePeerStatus)
+- ✅ `app/backend/src/domain/specs/PermissionSpec.ts` — authorization (ADMIN, OPERATOR, VIEWER)
+- ✅ `app/backend/src/db/index.ts` — Drizzle client, pg pool, health checks, graceful shutdown
+- ✅ `app/backend/drizzle.config.ts` — migrations config
+- ✅ Migrations auto-generated, no manual SQL
+- ✅ TypeScript strict mode passes, all modules compile
 
 **Key design decisions locked in:**
 - Optimistic locking via `UNIQUE(aggregate_id, version)` — detects concurrent writes
@@ -22,10 +26,11 @@ This doc maps the immediate next work in the mandatory order, with rough scope a
 - Drizzle ORM — type-safe migrations, no manual SQL
 
 **What's available for Phase 3:**
-- `events` table (append-only, indexed)
-- `DomainEvent`, `Command` base types (discriminated unions)
-- `PermissionSpec` (authorization patterns)
-- `db` client (pooled connection)
+- `events` table (append-only, version-indexed, `UNIQUE(aggregate_id, version)` for optimistic locking)
+- `DomainEvent`, `Command` base classes with 7 event + 3 command discriminated-union subclasses
+- `PermissionSpec` (ADMIN/OPERATOR/VIEWER role-based authorization)
+- `db` singleton client (pooled PostgreSQL via Drizzle)
+- All domain types exported from `app/backend/src/domain/` for reuse
 
 **What's still TODO:**
 - EventStore (Phase 3 builds this)
