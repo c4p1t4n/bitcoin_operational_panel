@@ -1,0 +1,317 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-mono); }
+
+.root { padding: 1rem 0; }
+
+.legend {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  font-family: var(--font-sans);
+}
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-btc  { background: #f59e0b; }
+.dot-be   { background: #3b82f6; }
+.dot-ws   { background: #10b981; }
+.dot-fe   { background: #8b5cf6; }
+.dot-sh   { background: #6b7280; }
+
+.tree { line-height: 1; }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 1px 0;
+  border-radius: 4px;
+  cursor: default;
+  transition: background 0.1s;
+}
+.row:hover { background: var(--surface-1); }
+.row.clickable { cursor: pointer; }
+
+.indent { display: flex; align-items: center; flex-shrink: 0; }
+.branch {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--border-stronger);
+  font-size: 11px; flex-shrink: 0;
+  user-select: none;
+}
+.branch.toggle { cursor: pointer; color: var(--text-muted); }
+.branch.toggle:hover { color: var(--text-secondary); }
+
+.icon { font-size: 13px; margin-right: 5px; flex-shrink: 0; }
+
+.name {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.name.folder { font-weight: 500; }
+.name.root-folder { font-weight: 500; font-size: 14px; }
+
+.tag {
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tag-btc  { background: #fef3c7; color: #92400e; }
+.tag-be   { background: #dbeafe; color: #1e40af; }
+.tag-ws   { background: #dcfce7; color: #15803d; }
+.tag-fe   { background: #ede9fe; color: #5b21b6; }
+.tag-sh   { background: var(--surface-1); color: var(--text-muted); border: 0.5px solid var(--border-strong); }
+.tag-new  { background: var(--bg-accent); color: var(--text-accent); }
+
+.comment {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+
+.children { overflow: hidden; transition: max-height 0.2s ease; }
+.children.collapsed { max-height: 0 !important; }
+
+.section-gap { height: 6px; }
+</style>
+
+<div class="root">
+  <h2 class="sr-only">Estrutura de pastas do Bitcoin Operations Panel</h2>
+
+  <div class="legend">
+    <div class="legend-item"><div class="dot dot-btc"></div>Bitcoin node</div>
+    <div class="legend-item"><div class="dot dot-be"></div>Backend patterns</div>
+    <div class="legend-item"><div class="dot dot-ws"></div>WebSocket / Redis</div>
+    <div class="legend-item"><div class="dot dot-fe"></div>Frontend React</div>
+    <div class="legend-item"><div class="dot dot-sh"></div>Shared / config</div>
+  </div>
+
+  <div class="tree" id="tree"></div>
+</div>
+
+<script>
+const data = [
+  { id:'root', label:'bitcoin-ops-panel/', type:'folder', tag:null, comment:'monorepo (turborepo)', depth:0, open:true },
+
+  { id:'pkg_json', label:'package.json', type:'file', tag:'sh', comment:'workspaces config', depth:1 },
+  { id:'turbo', label:'turbo.json', type:'file', tag:'sh', comment:'pipeline: build, dev, lint', depth:1 },
+  { id:'docker', label:'docker-compose.yml', type:'file', tag:'sh', comment:'postgres + redis local', depth:1 },
+
+  { id:'apps', label:'apps/', type:'folder', tag:null, comment:null, depth:1, open:true },
+
+  { id:'server', label:'server/', type:'folder', tag:'be', comment:'Node.js + tRPC', depth:2, open:true },
+  { id:'srv_src', label:'src/', type:'folder', tag:null, comment:null, depth:3, open:true },
+
+  { id:'btc_dir', label:'bitcoin/', type:'folder', tag:'btc', comment:'Adapter layer', depth:4, open:true },
+  { id:'btc_types', label:'bitcoin.types.ts', type:'file', tag:'btc', comment:'tipos fortes do RPC', depth:5 },
+  { id:'btc_adapter', label:'BitcoinRPCAdapter.ts', type:'file', tag:'btc', comment:'Adapter pattern', depth:5 },
+  { id:'btc_mempool', label:'MempoolPoller.ts', type:'file', tag:'btc', comment:'Observer + Template Method', depth:5 },
+  { id:'btc_block', label:'BlockWatcher.ts', type:'file', tag:'btc', comment:'Observer — novo bloco', depth:5 },
+
+  { id:'domain_dir', label:'domain/', type:'folder', tag:'be', comment:'Core do negócio', depth:4, open:true },
+  { id:'dom_events', label:'events/', type:'folder', tag:'be', comment:null, depth:5, open:true },
+  { id:'dom_base', label:'DomainEvent.ts', type:'file', tag:'be', comment:'base de todos os eventos', depth:6 },
+  { id:'dom_fee', label:'MemPoolFeeSpike.ts', type:'file', tag:'be', comment:null, depth:6 },
+  { id:'dom_large', label:'LargeTxDetected.ts', type:'file', tag:'be', comment:null, depth:6 },
+  { id:'dom_block', label:'NewBlockMined.ts', type:'file', tag:'be', comment:null, depth:6 },
+  { id:'dom_alert', label:'AlertTriggered.ts', type:'file', tag:'be', comment:null, depth:6 },
+  { id:'dom_cmds', label:'commands/', type:'folder', tag:'be', comment:null, depth:5, open:true },
+  { id:'cmd_base', label:'Command.ts', type:'file', tag:'be', comment:'Command pattern — interface base', depth:6 },
+  { id:'cmd_ack', label:'AcknowledgeAlert.ts', type:'file', tag:'be', comment:null, depth:6 },
+  { id:'cmd_create', label:'CreateAlertRule.ts', type:'file', tag:'be', comment:null, depth:6 },
+  { id:'dom_specs', label:'specs/', type:'folder', tag:'be', comment:null, depth:5, open:false },
+  { id:'spec_perm', label:'PermissionSpec.ts', type:'file', tag:'be', comment:'Specification pattern', depth:6 },
+
+  { id:'infra_dir', label:'infra/', type:'folder', tag:'be', comment:'Infraestrutura', depth:4, open:true },
+  { id:'inf_es', label:'EventStore.ts', type:'file', tag:'be', comment:'Event sourcing — append-only', depth:5 },
+  { id:'inf_cb', label:'CommandBus.ts', type:'file', tag:'be', comment:'Command pattern + routing', depth:5 },
+  { id:'inf_eb', label:'EventBus.ts', type:'file', tag:'ws', comment:'Redis Pub/Sub — fan-out', depth:5 },
+  { id:'inf_pt', label:'PresenceTracker.ts', type:'file', tag:'ws', comment:'Presence pattern + TTL', depth:5 },
+  { id:'inf_proj', label:'projections/', type:'folder', tag:'be', comment:null, depth:5, open:false },
+  { id:'proj_alert', label:'AlertProjection.ts', type:'file', tag:'be', comment:'atualiza read model', depth:6 },
+  { id:'inf_db', label:'db/', type:'folder', tag:'be', comment:null, depth:5, open:true },
+  { id:'db_schema', label:'schema.ts', type:'file', tag:'be', comment:'Drizzle ORM — tabela events append-only', depth:6 },
+  { id:'db_client', label:'client.ts', type:'file', tag:'be', comment:'conexão Postgres', depth:6 },
+  { id:'db_migr', label:'migrations/', type:'folder', tag:'be', comment:'gerado pelo Drizzle Kit', depth:6, open:false },
+
+  { id:'rules_dir', label:'rules/', type:'folder', tag:'be', comment:'Rule engine', depth:4, open:true },
+  { id:'rule_eng', label:'RuleEngine.ts', type:'file', tag:'be', comment:'Chain of Responsibility', depth:5 },
+  { id:'rule_build', label:'AlertRuleBuilder.ts', type:'file', tag:'be', comment:'Builder pattern', depth:5 },
+  { id:'rule_hand', label:'handlers/', type:'folder', tag:'be', comment:'Strategy por tipo de condição', depth:5, open:true },
+  { id:'hand_fee', label:'FeeSpikeHandler.ts', type:'file', tag:'be', comment:'Strategy', depth:6 },
+  { id:'hand_tx', label:'LargeTxHandler.ts', type:'file', tag:'be', comment:'Strategy', depth:6 },
+  { id:'hand_rbf', label:'RBFHandler.ts', type:'file', tag:'be', comment:'Strategy', depth:6 },
+
+  { id:'trpc_dir', label:'trpc/', type:'folder', tag:'ws', comment:'tRPC layer', depth:4, open:true },
+  { id:'trpc_mid', label:'middleware/', type:'folder', tag:'ws', comment:'Decorator pattern', depth:5, open:true },
+  { id:'mid_auth', label:'auth.ts', type:'file', tag:'ws', comment:'autenticação', depth:6 },
+  { id:'mid_audit', label:'audit.ts', type:'file', tag:'ws', comment:'audit trail', depth:6 },
+  { id:'mid_rate', label:'rateLimit.ts', type:'file', tag:'ws', comment:'rate limiting', depth:6 },
+  { id:'trpc_rout', label:'routers/', type:'folder', tag:'ws', comment:null, depth:5, open:true },
+  { id:'rout_alerts', label:'alerts.ts', type:'file', tag:'ws', comment:'mutations + subscriptions', depth:6 },
+  { id:'rout_mempl', label:'mempool.ts', type:'file', tag:'ws', comment:'queries + sub de rede', depth:6 },
+  { id:'rout_ops', label:'operations.ts', type:'file', tag:'ws', comment:'CRUD com event sourcing', depth:6 },
+  { id:'trpc_root', label:'root.ts', type:'file', tag:'ws', comment:'root router exportado', depth:5 },
+  { id:'trpc_ctx', label:'context.ts', type:'file', tag:'ws', comment:'injeção de dependências', depth:5 },
+
+  { id:'srv_index', label:'index.ts', type:'file', tag:'be', comment:'entry point — wiring de tudo', depth:4 },
+
+  { id:'web', label:'web/', type:'folder', tag:'fe', comment:'React + tRPC client', depth:2, open:true },
+  { id:'web_src', label:'src/', type:'folder', tag:null, comment:null, depth:3, open:true },
+
+  { id:'web_store', label:'store/', type:'folder', tag:'fe', comment:'External store (fora do React)', depth:4, open:true },
+  { id:'ws_store', label:'WebSocketStore.ts', type:'file', tag:'fe', comment:'External store pattern', depth:5 },
+
+  { id:'web_hooks', label:'hooks/', type:'folder', tag:'fe', comment:null, depth:4, open:true },
+  { id:'hk_ws', label:'useWebSocket.ts', type:'file', tag:'fe', comment:'useSyncExternalStore', depth:5 },
+  { id:'hk_perm', label:'usePermission.ts', type:'file', tag:'fe', comment:'Specification no React', depth:5 },
+  { id:'hk_opti', label:'useOptimisticMutation.ts', type:'file', tag:'fe', comment:'optimistic update + rollback', depth:5 },
+
+  { id:'web_comp', label:'components/', type:'folder', tag:'fe', comment:null, depth:4, open:true },
+  { id:'comp_table', label:'OperationsTable/', type:'folder', tag:'fe', comment:'Render props pattern', depth:5, open:true },
+  { id:'tbl_idx', label:'index.tsx', type:'file', tag:'fe', comment:'DataTable genérica', depth:6 },
+  { id:'tbl_cols', label:'columns.tsx', type:'file', tag:'fe', comment:'colunas como render props', depth:6 },
+  { id:'comp_alert', label:'AlertPanel/', type:'folder', tag:'fe', comment:'Compound component', depth:5, open:false },
+  { id:'alp_idx', label:'index.tsx', type:'file', tag:'fe', comment:'AlertPanel.Root', depth:6 },
+  { id:'alp_list', label:'AlertList.tsx', type:'file', tag:'fe', comment:'AlertPanel.List', depth:6 },
+  { id:'alp_det', label:'AlertDetail.tsx', type:'file', tag:'fe', comment:'AlertPanel.Detail', depth:6 },
+  { id:'comp_timeline', label:'EventTimeline/', type:'folder', tag:'fe', comment:'audit trail visual', depth:5, open:false },
+  { id:'tl_idx', label:'index.tsx', type:'file', tag:'fe', comment:'reconstrói do event log', depth:6 },
+  { id:'comp_mempool', label:'MempoolWidget/', type:'folder', tag:'fe', comment:'métricas da rede', depth:5, open:false },
+  { id:'mp_idx', label:'index.tsx', type:'file', tag:'fe', comment:'useSyncExternalStore + memo', depth:6 },
+  { id:'comp_presence', label:'PresenceAvatars/', type:'folder', tag:'fe', comment:'quem está online', depth:5, open:false },
+  { id:'pr_idx', label:'index.tsx', type:'file', tag:'fe', comment:'cursors em tempo real', depth:6 },
+
+  { id:'web_lib', label:'lib/', type:'folder', tag:'fe', comment:null, depth:4, open:false },
+  { id:'lib_trpc', label:'trpc.ts', type:'file', tag:'fe', comment:'cliente tRPC configurado', depth:5 },
+
+  { id:'web_app', label:'app/', type:'folder', tag:'fe', comment:'Next.js app router', depth:4, open:false },
+  { id:'app_page', label:'page.tsx', type:'file', tag:'fe', comment:'dashboard principal', depth:5 },
+  { id:'app_lay', label:'layout.tsx', type:'file', tag:'fe', comment:'providers (tRPC, auth)', depth:5 },
+
+  { id:'packages', label:'packages/', type:'folder', tag:null, comment:null, depth:1, open:true },
+  { id:'shared', label:'shared/', type:'folder', tag:'sh', comment:'tipos server ↔ client', depth:2, open:true },
+  { id:'sh_src', label:'src/', type:'folder', tag:null, comment:null, depth:3, open:true },
+  { id:'sh_events', label:'events.ts', type:'file', tag:'sh', comment:'DomainEvent types exportados', depth:4 },
+  { id:'sh_cmds', label:'commands.ts', type:'file', tag:'sh', comment:'Command types exportados', depth:4 },
+  { id:'sh_perms', label:'permissions.ts', type:'file', tag:'sh', comment:'Specification — usada no server e client', depth:4 },
+]
+
+const tagColors = {
+  btc: 'tag-btc', be: 'tag-be', ws: 'tag-ws', fe: 'tag-fe', sh: 'tag-sh'
+}
+const tagLabels = {
+  btc: 'Bitcoin', be: 'Backend', ws: 'WebSocket', fe: 'Frontend', sh: 'Shared'
+}
+
+const fileIcon = '<i class="ti ti-file-code" style="font-size:13px;color:var(--text-muted)" aria-hidden="true"></i>'
+const folderOpenIcon = '<i class="ti ti-folder-open" style="font-size:13px;color:var(--text-accent)" aria-hidden="true"></i>'
+const folderClosedIcon = '<i class="ti ti-folder" style="font-size:13px;color:var(--text-muted)" aria-hidden="true"></i>'
+
+function buildTree() {
+  const tree = document.getElementById('tree')
+  tree.innerHTML = ''
+
+  const openState = {}
+  data.forEach(n => { if (n.type === 'folder') openState[n.id] = n.open !== false })
+
+  function hasChildren(idx) {
+    if (idx >= data.length - 1) return false
+    return data[idx + 1].depth > data[idx].depth
+  }
+
+  function getChildren(parentIdx) {
+    const parentDepth = data[parentIdx].depth
+    const children = []
+    for (let i = parentIdx + 1; i < data.length; i++) {
+      if (data[i].depth <= parentDepth) break
+      if (data[i].depth === parentDepth + 1) children.push(i)
+    }
+    return children
+  }
+
+  function renderNode(idx, container) {
+    const node = data[idx]
+    const isFolder = node.type === 'folder'
+    const children = isFolder ? getChildren(idx) : []
+    const hasKids = children.length > 0
+
+    const row = document.createElement('div')
+    row.className = 'row' + (hasKids ? ' clickable' : '')
+    row.style.paddingLeft = (node.depth * 20) + 'px'
+
+    const branch = document.createElement('span')
+    branch.className = 'branch' + (hasKids ? ' toggle' : '')
+    branch.textContent = hasKids ? (openState[node.id] ? '▾' : '▸') : ''
+
+    const icon = document.createElement('span')
+    icon.className = 'icon'
+    if (isFolder) {
+      icon.innerHTML = openState[node.id] ? folderOpenIcon : folderClosedIcon
+    } else {
+      icon.innerHTML = fileIcon
+    }
+
+    const name = document.createElement('span')
+    name.className = 'name' + (isFolder ? (node.depth === 0 ? ' root-folder' : ' folder') : '')
+    name.textContent = node.label
+
+    row.appendChild(branch)
+    row.appendChild(icon)
+    row.appendChild(name)
+
+    if (node.tag) {
+      const tag = document.createElement('span')
+      tag.className = 'tag ' + tagColors[node.tag]
+      tag.textContent = tagLabels[node.tag]
+      row.appendChild(tag)
+    }
+
+    if (node.comment) {
+      const comment = document.createElement('span')
+      comment.className = 'comment'
+      comment.textContent = '— ' + node.comment
+      row.appendChild(comment)
+    }
+
+    container.appendChild(row)
+
+    if (hasKids) {
+      const childContainer = document.createElement('div')
+      childContainer.className = 'children' + (openState[node.id] ? '' : ' collapsed')
+      childContainer.style.maxHeight = openState[node.id] ? '9999px' : '0'
+
+      children.forEach(ci => renderNode(ci, childContainer))
+      container.appendChild(childContainer)
+
+      row.addEventListener('click', () => {
+        openState[node.id] = !openState[node.id]
+        branch.textContent = openState[node.id] ? '▾' : '▸'
+        icon.innerHTML = openState[node.id] ? folderOpenIcon : folderClosedIcon
+        if (openState[node.id]) {
+          childContainer.style.maxHeight = '9999px'
+          childContainer.classList.remove('collapsed')
+        } else {
+          childContainer.style.maxHeight = '0'
+          childContainer.classList.add('collapsed')
+        }
+      })
+    }
+  }
+
+  data.forEach((node, idx) => {
+    if (node.depth === 0) renderNode(idx, tree)
+  })
+}
+
+buildTree()
+</script>

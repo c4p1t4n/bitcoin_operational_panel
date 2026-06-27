@@ -1,0 +1,12 @@
+services:
+  bitcoind:
+    image: ruimarinho/bitcoin-core:latest
+    container_name: bitcoin-pruned
+    restart: unless-stopped
+
+    ports:
+      - "8332:8332"
+      - "8333:8333"
+
+    volumes:
+      - ./data:/home/bitcoin/.bitcoin

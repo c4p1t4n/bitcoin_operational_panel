@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+bitcoin_node/data/
+coverage/
+.DS_Store
