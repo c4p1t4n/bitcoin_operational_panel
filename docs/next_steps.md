@@ -2,7 +2,7 @@
 
 This doc maps the immediate next work in the mandatory order, with rough scope and key decisions for each phase.
 
-**Last Updated:** 2026-06-27 — Phase 3 complete, Phase 4 next
+**Last Updated:** 2026-06-27 — Phase 4 complete, Phase 5 next
 
 ---
 
@@ -150,43 +150,42 @@ export class OptimisticConcurrencyError extends Error {}
 
 ---
 
-## Phase 4: Rule Engine (Next)
+## Phase 4: Rule Engine (✅ Complete)
+
+**Status:** Done on `feature/rule-engine` branch (2026-06-27). Unit tests skipped at dev's
+request this round — planned cases remain documented in `docs/features/rule-engine/plan.md`.
 
 **Why:** evaluates domain events (from EventBus) against configured alert rules,
 produces commands (CreateAlertRule aftermath → rules active → event triggers command).
 Bridges event sourcing (Phase 3) and automation (Phase 5 exposes to UI).
 
-### RuleEngine.ts — Chain of Responsibility + Strategy
+**Deliverables:**
+- ✅ `app/backend/src/infra/RuleEngine.ts` — Chain of Responsibility, subscribes to all known
+  domain event types, evaluates active rules, dispatches commands fire-and-forget
+- ✅ `app/backend/src/infra/rules/AlertRuleBuilder.ts` — fluent DSL
+  (`.whenFeeSpike(20).triggerAlert(...)`)
+- ✅ `app/backend/src/infra/rules/ConditionMatcher.ts` + `Rule.ts` — Strategy interface and rule types
+- ✅ `app/backend/src/infra/rules/matchers/` — FeeSpikeMatcher, TransactionSizeMatcher, PeerCountMatcher
+- ✅ `app/backend/src/domain/commands/TriggerAlert.ts` + `app/backend/src/infra/handlers/TriggerAlertHandler.ts`
+  — new Command/Handler pair (AlertTriggered existed only as a DomainEvent in Phase 3, with no
+  Command path to produce it)
+- ✅ `app/backend/src/infra/CommandBus.ts` — added permission case for `TRIGGER_ALERT`
+- ✅ TypeScript strict mode passes
+- ✅ `docs/features/rule-engine/{plan,implementation,review}.md` — full design documentation
 
-**Key decisions:**
-- **subscribe(eventBus):** registers for all domain events at startup
-- **evaluateEvent(event):** runs event through all active rules, dispatches command if condition met
-- **Handlers:** Strategy pattern for each condition type (fee spike, tx size, RBF, peer count)
-- **Error handling:** if rule evaluation fails, logs + continues (doesn't crash event flow)
+**Key design decisions locked in:**
+- Chain of Responsibility: each rule evaluated independently, errors isolated per-rule
+- EventBus has no wildcard subscribe — RuleEngine subscribes explicitly to a known list of event types
+- `PeerCountMatcher` keeps in-memory state (connected peer count) since Peer events carry only the
+  individual peer affected, not an aggregate count — flagged for Phase 5 (Redis) migration
+- Rules with conditions spanning different event types can never match (single-event evaluation
+  model) — acceptable for MVP, documented as a known trade-off
 
-**Module:** `app/backend/src/infra/RuleEngine.ts`
-
-**Dependency injection:** CommandBus (to dispatch generated commands), EventBus (to subscribe)
-
-**Tests planned:**
-- Rule evaluation: fee spike condition triggers AlertTriggered command
-- Multiple rules: event matches multiple rules, all trigger
-- Error isolation: one rule fails, others still evaluate
-- Inactive rules: skipped
-
-### AlertRuleBuilder.ts — Fluent API
-
-**Key decisions:**
-- DSL for building rules: `new AlertRuleBuilder().whenFeeSpike(20).whenTxSize(50_000).triggerCommand('...')`
-- Compiles to internal Rule representation (condition + action)
-- Validates configuration (threshold ranges, command type valid)
-
-**Module:** `app/backend/src/infra/AlertRuleBuilder.ts`
-
-**Tests planned:**
-- Builder chaining works
-- Validation: rejects invalid thresholds
-- Compilation: produces valid Rule object
+**What's still TODO (deferred to Phase 5):**
+- Loading `rule_definitions` from Postgres into `RuleEngine.addRule()` at boot
+- Real bootstrap/entrypoint wiring (CommandBus handler registration, RuleEngine.bootstrap())
+- Moving `PeerCountMatcher` state to Redis for multi-instance support
+- Unit tests (planned cases in `docs/features/rule-engine/plan.md`)
 
 ---
 

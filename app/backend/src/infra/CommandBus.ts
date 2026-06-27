@@ -149,6 +149,15 @@ export class CommandBus implements ICommandDispatcher {
         }
         break;
 
+      case "TRIGGER_ALERT":
+        // Originado pelo RuleEngine (ator de sistema) ou por um ADMIN/OPERATOR manual.
+        if (!PermissionSpec.canCreateAlert(user)) {
+          throw new PermissionError(
+            "User does not have permission to trigger alerts"
+          );
+        }
+        break;
+
       default:
         // Handlers customizados podem não ter permissão centralizada
         // apenas passam por aqui
