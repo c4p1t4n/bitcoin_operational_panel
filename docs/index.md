@@ -26,58 +26,48 @@
 
 **Status:** First vertical slice complete on `feature/bitcoin-node-integration` branch. Validated against real Bitcoin node. Mempool empty (node mid-IBD) — re-verify `tx:added`/`fee:spike` once node is synced.
 
+### Phase 2: Database Schema & Domain Layer
+- ✅ **app/infra/docker-compose.yml** — PostgreSQL 16 with health checks and persistent volume
+- ✅ **app/infra/schema.ts** — Drizzle ORM: users, events (append-only), alerts, operations_log, peers_status, rule_definitions
+- ✅ **app/backend/src/domain/types.ts** — User, Alert, Role, AggregateType shared vocabulary
+- ✅ **app/backend/src/domain/events/** — DomainEvent base class + subclasses (MemPoolFeeSpike, AlertTriggered, AlertAcknowledged, PeerConnected, PeerDisconnected, NewBlockMined, TransactionDetected)
+- ✅ **app/backend/src/domain/commands/** — Command base class + subclasses (CreateAlertRule, AcknowledgeAlert, UpdatePeerStatus)
+- ✅ **app/backend/src/domain/specs/PermissionSpec.ts** — Authorization rules (ADMIN, OPERATOR, VIEWER roles)
+- ✅ **app/backend/src/db/index.ts** — Drizzle client, connection pool, health checks, graceful shutdown
+- ✅ **app/backend/drizzle.config.ts** — Migration config
+- ✅ **docs/features/database-schema-and-domain/plan.md, implementation.md, review.md** — Complete documentation
+
+**Status:** Phase 2 complete on `feature/schema-and-domain` branch. All domain types, database schema, and tooling ready. TypeScript strict mode passes.
+
 ---
 
 ## In Progress (🔄)
 
-### Phase 2: Database Schema & Domain Layer
+### Phase 3: Event Sourcing Infrastructure
+- ✅ **app/backend/src/infra/EventStore.ts** — Append-only log with optimistic locking via `UNIQUE(aggregate_id, version)` constraint, `append(command, events)`, `getEventsFor(aggregateId)`
+- ✅ **app/backend/src/infra/CommandBus.ts** — Command dispatch with PermissionSpec validation, handler registry, OptimisticConcurrencyError propagation
+- ✅ **app/backend/src/infra/EventBus.ts** — In-memory pub/sub (MVP; Redis integration Phase 5)
+- ✅ **app/backend/src/infra/handlers/** — Three CommandHandlers (CreateAlertRuleHandler, AcknowledgeAlertHandler, UpdatePeerStatusHandler)
+- ✅ **app/backend/src/infra/__tests__/** — Full unit test coverage (EventStore, CommandBus, EventBus, error scenarios)
+- ✅ **app/backend/src/infra/index.ts** — Barrel file exporting public interfaces
+- ✅ **docs/features/event-sourcing/plan.md** — Complete design documentation
 
-2. ✅ **app/infra/** — Docker PostgreSQL infrastructure
-   - `docker-compose.yml`: PostgreSQL 16 container with health checks, persistent volume
-   - `schema.ts`: Drizzle ORM definition for `users`, `events`, `alerts`, `operations_log`, `peers_status`, `rule_definitions`
-   - Migrations auto-generated from schema (zero manual SQL)
-   - Postgres read to start database: `docker-compose up -d`
-
-3. ✅ **app/backend/src/domain/** — Event sourcing vocabulary
-   - `DomainEvent` base class with typed subclasses (MemPoolFeeSpike, AlertTriggered, PeerConnected, NewBlockMined)
-   - `Command` base class with subclasses (CreateAlertRule, AcknowledgeAlert, UpdatePeerStatus)
-   - `PermissionSpec` — authorization rules (reusable in CommandBus and frontend)
-   - All types exported for shared use (backend + frontend packages)
-
-4. ✅ **app/backend/src/db/** — Database connectivity
-   - Drizzle client (singleton), connection pool (pg.Pool), health checks
-   - `drizzle.config.ts` points to schema for migrations
-
-**Status:** Phase 2 complete on `feature/schema-and-domain` branch. Schema compiles, database runs, domain types export.
+**Status:** Phase 3 infrastructure complete on `feature/event-sourcing` branch. All modules SOLID-checked, TypeScript strict mode passes, ready for Phase 4 (RuleEngine).
 
 ---
 
 ## Next Steps (TODO)
 
-Follow the mandatory order per the architecture roadmap:
+### Phase 4: Rule Engine (Next)
 
-### Phase 3: EventStore, CommandBus, EventBus
+- **RuleEngine.ts** — Chain of Responsibility pattern
+  - Subscribes to EventBus, evaluates events against active alert rules
+  - Each condition type (fee spike, tx size, RBF) is a Strategy handler
+  - Produces AlertTriggered or UpdatePeerStatus commands if condition met
 
-1. **EventStore.ts** — Event sourcing heart
-   - `append(command, events)` — persists events with optimistic locking via version/OptimisticConcurrencyError
-   - `getEventsFor(aggregateId)` — reconstructs state by replaying events
-   - Handles the CommandBus → EventStore → EventBus publish flow
-
-2. **CommandBus.ts** — Command dispatch and routing
-   - `dispatch(command)` → validate permissions → find handler → execute → emit domain events
-   - Handlers registered at boot (dependency injection)
-   - Payload validation (mitigates JSONB flexibility risk)
-
-3. **EventBus.ts** — Pub/Sub via Redis, fan-out of domain events
-   - Listens to EventStore.append, publishes to subscribers
-   - Used by RuleEngine, frontend subscriptions, audit trail
-
-### Phase 4: Rule Engine
-
-4. **RuleEngine.ts** — Chain of Responsibility + Strategy
-   - Evaluates domain events against alert rules
-   - Each condition type (fee spike, tx size, RBF) is a Strategy handler
-   - `AlertRuleBuilder` — fluent API for building rules
+- **AlertRuleBuilder.ts** — Fluent API
+  - DSL for building and combining rule conditions
+  - Registers with RuleEngine
 
 ### Phase 5: Backend API & Frontend Integration
 

@@ -69,7 +69,7 @@ Isso garante o **D** (Dependency Inversion) e o **I** (Interface Segregation) do
 antes de qualquer implementação.
 
 ### 1.6 Planejar os testes
-SOMENTE QUANDO
+SOMENTE QUANDO O DEV SOLICITAR EXPLICITAMENTE
 Liste os casos de teste antes de implementar:
 - Happy path
 - Edge cases (entrada vazia, valor limite, concorrência)

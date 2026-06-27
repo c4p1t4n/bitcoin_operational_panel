@@ -1,0 +1,507 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); font-size: 13px; }
+
+.app { display: grid; grid-template-columns: 200px 1fr; min-height: 580px; border: 0.5px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface-1); }
+
+.sidebar { background: var(--surface-2); border-right: 0.5px solid var(--border); display: flex; flex-direction: column; padding: 16px 0; }
+.sidebar-logo { padding: 0 16px 16px; border-bottom: 0.5px solid var(--border); margin-bottom: 8px; }
+.logo-text { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.logo-sub { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 16px; cursor: pointer; border-radius: 0; color: var(--text-secondary); font-size: 13px; transition: background 0.1s, color 0.1s; border: none; background: none; width: 100%; text-align: left; font-family: var(--font-sans); }
+.nav-item:hover { background: var(--surface-1); }
+.nav-item.active { color: var(--text-primary); background: var(--surface-1); font-weight: 500; }
+.nav-item i { font-size: 15px; flex-shrink: 0; }
+
+.nav-section { padding: 12px 16px 4px; font-size: 10px; font-weight: 500; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+
+.conn-status { margin-top: auto; padding: 12px 16px; border-top: 0.5px solid var(--border); display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.conn-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+
+.main { display: flex; flex-direction: column; background: var(--surface-1); }
+
+.topbar { padding: 10px 20px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface-2); }
+.topbar-title { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+
+.presence { display: flex; gap: -4px; }
+.avatar { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; border: 1.5px solid var(--surface-2); margin-left: -6px; }
+.avatar:first-child { margin-left: 0; }
+.av-blue { background: #dbeafe; color: #1e40af; }
+.av-green { background: #dcfce7; color: #15803d; }
+.av-amber { background: #fef3c7; color: #92400e; }
+
+.badge { padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+.badge-danger { background: var(--bg-danger); color: var(--text-danger); }
+.badge-success { background: var(--bg-success); color: var(--text-success); }
+.badge-warning { background: var(--bg-warning); color: var(--text-warning); }
+.badge-muted { background: var(--surface-1); color: var(--text-muted); border: 0.5px solid var(--border-strong); }
+
+.content { flex: 1; padding: 20px; overflow: hidden; }
+
+.view { display: none; }
+.view.active { display: block; }
+
+.metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.metric { background: var(--surface-2); border-radius: var(--radius); padding: 10px 12px; border: 0.5px solid var(--border); }
+.metric-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.metric-value { font-size: 20px; font-weight: 500; color: var(--text-primary); font-family: var(--font-mono); }
+.metric-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.metric-up { color: var(--text-danger); }
+.metric-down { color: var(--text-success); }
+
+.two-col { display: grid; grid-template-columns: 1fr 300px; gap: 12px; }
+
+.panel { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; overflow: hidden; }
+.panel-header { padding: 10px 14px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.panel-body { padding: 0; }
+
+.event-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 14px; border-bottom: 0.5px solid var(--border); }
+.event-row:last-child { border-bottom: none; }
+.event-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.dot-red { background: #ef4444; }
+.dot-amber { background: #f59e0b; }
+.dot-blue { background: #3b82f6; }
+.dot-gray { background: var(--border-strong); }
+.event-type { font-size: 11px; font-family: var(--font-mono); color: var(--text-primary); font-weight: 500; }
+.event-detail { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+.event-time { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); flex-shrink: 0; margin-left: auto; }
+
+.alert-table { width: 100%; }
+.alert-table th { padding: 6px 14px; font-size: 11px; font-weight: 500; color: var(--text-muted); text-align: left; border-bottom: 0.5px solid var(--border); background: var(--surface-1); }
+.alert-table td { padding: 8px 14px; font-size: 12px; color: var(--text-secondary); border-bottom: 0.5px solid var(--border); vertical-align: middle; }
+.alert-table tr:hover td { background: var(--surface-1); }
+.alert-table tr.selected td { background: var(--bg-accent); }
+.alert-table td.primary { color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; }
+
+.sev-critical { color: #b91c1c; font-weight: 500; }
+.sev-high { color: #c2410c; font-weight: 500; }
+.sev-medium { color: #92400e; }
+.sev-low { color: var(--text-secondary); }
+
+.ack-btn { padding: 3px 10px; border-radius: var(--radius); background: var(--bg-accent); color: var(--text-accent); border: 0.5px solid var(--border-accent); font-size: 11px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); }
+
+.detail-panel { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; overflow: hidden; }
+.detail-header { padding: 12px 14px; border-bottom: 0.5px solid var(--border); }
+.detail-title { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+.detail-meta { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+.timeline-item { display: flex; gap: 10px; padding: 8px 14px; border-bottom: 0.5px solid var(--border); }
+.timeline-item:last-child { border-bottom: none; }
+.tl-line { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.tl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); flex-shrink: 0; margin-top: 3px; }
+.tl-dot.active { background: var(--text-accent); }
+.tl-connector { width: 1px; flex: 1; background: var(--border); min-height: 12px; }
+.tl-content { flex: 1; }
+.tl-event { font-size: 11px; font-weight: 500; color: var(--text-primary); font-family: var(--font-mono); }
+.tl-user { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+.rules-list { }
+.rule-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 0.5px solid var(--border); }
+.rule-row:last-child { border-bottom: none; }
+.rule-name { font-size: 13px; font-weight: 500; color: var(--text-primary); flex: 1; }
+.rule-conditions { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px; }
+.rule-toggle { width: 28px; height: 16px; border-radius: 8px; background: #22c55e; position: relative; cursor: pointer; flex-shrink: 0; }
+.rule-toggle.off { background: var(--border-strong); }
+.rule-toggle-knob { width: 12px; height: 12px; border-radius: 50%; background: white; position: absolute; top: 2px; right: 2px; transition: right 0.15s; }
+.rule-toggle.off .rule-toggle-knob { right: 14px; }
+
+.builder { padding: 14px; }
+.builder-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.builder-label { font-size: 12px; color: var(--text-secondary); min-width: 60px; }
+.builder select, .builder input[type=number] { font-size: 12px; padding: 4px 8px; border: 0.5px solid var(--border-strong); border-radius: var(--radius); background: var(--surface-1); color: var(--text-primary); font-family: var(--font-mono); width: 120px; }
+.builder-and { font-size: 11px; color: var(--text-muted); padding: 2px 8px; border-radius: 4px; border: 0.5px solid var(--border); background: var(--surface-1); text-align: center; margin: 4px 0; width: fit-content; margin-left: 68px; }
+
+.mempool-bar-container { margin-bottom: 12px; }
+.mempool-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.mempool-bar-track { height: 4px; background: var(--border-strong); border-radius: 2px; overflow: hidden; }
+.mempool-bar-fill { height: 100%; border-radius: 2px; background: var(--text-accent); }
+.mempool-bar-fill.warn { background: #f59e0b; }
+.mempool-bar-fill.danger { background: #ef4444; }
+
+.empty-state { padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px; }
+</style>
+
+<h2 class="sr-only">Mockup interativo do Bitcoin Operations Panel — dashboard com 3 views navegáveis</h2>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-text">Bitcoin Ops</div>
+      <div class="logo-sub">mainnet · pruned</div>
+    </div>
+
+    <span class="nav-section">Monitor</span>
+    <button class="nav-item active" data-view="dashboard" onclick="switchView('dashboard', this)">
+      <i class="ti ti-layout-dashboard" aria-hidden="true"></i> Dashboard
+    </button>
+    <button class="nav-item" data-view="alerts" onclick="switchView('alerts', this)">
+      <i class="ti ti-bell" aria-hidden="true"></i> Alerts
+      <span class="badge badge-danger" style="margin-left:auto;font-size:10px">3</span>
+    </button>
+    <button class="nav-item" data-view="mempool" onclick="switchView('mempool', this)">
+      <i class="ti ti-chart-bar" aria-hidden="true"></i> Mempool
+    </button>
+
+    <span class="nav-section">Config</span>
+    <button class="nav-item" data-view="rules" onclick="switchView('rules', this)">
+      <i class="ti ti-filter" aria-hidden="true"></i> Alert rules
+    </button>
+    <button class="nav-item" onclick="">
+      <i class="ti ti-settings" aria-hidden="true"></i> Settings
+    </button>
+
+    <div class="conn-status">
+      <div class="conn-dot"></div>
+      Node connected
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title" id="topbar-title">Dashboard</span>
+      <div class="topbar-right">
+        <div class="presence">
+          <div class="avatar av-blue" title="Leo (você)">LN</div>
+          <div class="avatar av-green" title="Ana (operadora)">AS</div>
+          <div class="avatar av-amber" title="Marco (viewer)">MC</div>
+        </div>
+        <span style="font-size:11px;color:var(--text-muted)">3 online</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="view active" id="view-dashboard">
+        <div class="metrics-grid">
+          <div class="metric">
+            <div class="metric-label">Mempool txs</div>
+            <div class="metric-value">12,847</div>
+            <div class="metric-sub metric-up"><i class="ti ti-arrow-up" style="font-size:10px" aria-hidden="true"></i> +340 last 5s</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Min fee rate</div>
+            <div class="metric-value">42</div>
+            <div class="metric-sub">sats/vB</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Block height</div>
+            <div class="metric-value" style="font-size:16px">843,291</div>
+            <div class="metric-sub">~8 min ago</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Peers</div>
+            <div class="metric-value">11</div>
+            <div class="metric-sub">8 out · 3 in</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Live network events</span>
+              <span class="badge badge-muted" style="font-size:10px">WebSocket</span>
+            </div>
+            <div class="panel-body">
+              <div class="event-row">
+                <div class="event-dot dot-red"></div>
+                <div style="flex:1">
+                  <div class="event-type">FEE_SPIKE_DETECTED</div>
+                  <div class="event-detail">32 → 42 sats/vB (+31%)</div>
+                </div>
+                <div class="event-time">14:23:01</div>
+              </div>
+              <div class="event-row">
+                <div class="event-dot dot-amber"></div>
+                <div style="flex:1">
+                  <div class="event-type">LARGE_TX_DETECTED</div>
+                  <div class="event-detail">2.3 BTC fee · 180kvB · non-RBF</div>
+                </div>
+                <div class="event-time">14:22:47</div>
+              </div>
+              <div class="event-row">
+                <div class="event-dot dot-blue"></div>
+                <div style="flex:1">
+                  <div class="event-type">NEW_BLOCK_MINED</div>
+                  <div class="event-detail">height 843,291 · 3,214 txs</div>
+                </div>
+                <div class="event-time">14:22:31</div>
+              </div>
+              <div class="event-row">
+                <div class="event-dot dot-amber"></div>
+                <div style="flex:1">
+                  <div class="event-type">RBF_DETECTED</div>
+                  <div class="event-detail">txid a3f2...8c1d replaced</div>
+                </div>
+                <div class="event-time">14:22:18</div>
+              </div>
+              <div class="event-row">
+                <div class="event-dot dot-gray"></div>
+                <div style="flex:1">
+                  <div class="event-type">MEMPOOL_UPDATED</div>
+                  <div class="event-detail">12,847 txs · 42 MB</div>
+                </div>
+                <div class="event-time">14:22:05</div>
+              </div>
+              <div class="event-row">
+                <div class="event-dot dot-red"></div>
+                <div style="flex:1">
+                  <div class="event-type">ALERT_TRIGGERED</div>
+                  <div class="event-detail">Fee spike alert · high severity</div>
+                </div>
+                <div class="event-time">14:23:01</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title">Fee distribution</span>
+              </div>
+              <div class="panel-body" style="padding:12px 14px">
+                <div class="mempool-bar-container">
+                  <div class="mempool-bar-label"><span>1–10 sats/vB</span><span>843 txs</span></div>
+                  <div class="mempool-bar-track"><div class="mempool-bar-fill" style="width:7%"></div></div>
+                </div>
+                <div class="mempool-bar-container">
+                  <div class="mempool-bar-label"><span>10–30 sats/vB</span><span>2,104 txs</span></div>
+                  <div class="mempool-bar-track"><div class="mempool-bar-fill" style="width:18%"></div></div>
+                </div>
+                <div class="mempool-bar-container">
+                  <div class="mempool-bar-label"><span>30–50 sats/vB</span><span>6,829 txs</span></div>
+                  <div class="mempool-bar-track"><div class="mempool-bar-fill warn" style="width:62%"></div></div>
+                </div>
+                <div class="mempool-bar-container">
+                  <div class="mempool-bar-label"><span>50+ sats/vB</span><span>3,071 txs</span></div>
+                  <div class="mempool-bar-track"><div class="mempool-bar-fill danger" style="width:28%"></div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header"><span class="panel-title">Active alerts</span></div>
+              <div class="panel-body" style="padding:10px 14px;display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:12px;color:var(--text-secondary)">Critical</span>
+                  <span class="badge badge-danger">1</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:12px;color:var(--text-secondary)">High</span>
+                  <span class="badge badge-warning">2</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:12px;color:var(--text-secondary)">Medium / Low</span>
+                  <span class="badge badge-muted">0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-alerts">
+        <div class="two-col" style="grid-template-columns:1fr 240px">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Active alerts</span>
+              <div style="display:flex;gap:6px">
+                <span class="badge badge-muted">render props</span>
+                <span class="badge badge-muted">optimistic UI</span>
+              </div>
+            </div>
+            <table class="alert-table">
+              <thead>
+                <tr>
+                  <th>Severity</th>
+                  <th>Event type</th>
+                  <th>Triggered</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="selected" onclick="">
+                  <td class="sev-critical">critical</td>
+                  <td class="primary">FEE_SPIKE_DETECTED</td>
+                  <td>14:23:01</td>
+                  <td><span class="badge badge-danger">active</span></td>
+                  <td><button class="ack-btn">Ack</button></td>
+                </tr>
+                <tr onclick="">
+                  <td class="sev-high">high</td>
+                  <td class="primary">LARGE_TX_DETECTED</td>
+                  <td>14:22:47</td>
+                  <td><span class="badge badge-danger">active</span></td>
+                  <td><button class="ack-btn">Ack</button></td>
+                </tr>
+                <tr onclick="">
+                  <td class="sev-high">high</td>
+                  <td class="primary">LARGE_TX_DETECTED</td>
+                  <td>14:20:12</td>
+                  <td><span class="badge badge-danger">active</span></td>
+                  <td><button class="ack-btn">Ack</button></td>
+                </tr>
+                <tr onclick="">
+                  <td class="sev-medium">medium</td>
+                  <td class="primary">RBF_DETECTED</td>
+                  <td>14:18:55</td>
+                  <td><span class="badge badge-success">acked</span></td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="detail-panel">
+            <div class="detail-header">
+              <div class="detail-title">FEE_SPIKE_DETECTED</div>
+              <div class="detail-meta">alert · critical · 14:23:01</div>
+            </div>
+            <div style="padding:10px 14px;border-bottom:0.5px solid var(--border)">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Trigger data</div>
+              <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-secondary);display:flex;flex-direction:column;gap:3px">
+                <span>prev: <span style="color:var(--text-primary)">32</span> sats/vB</span>
+                <span>curr: <span style="color:var(--text-danger)">42</span> sats/vB</span>
+                <span>delta: <span style="color:var(--text-danger)">+31%</span></span>
+              </div>
+            </div>
+            <div style="padding:8px 14px 0;font-size:11px;color:var(--text-muted);margin-bottom:6px">Audit trail</div>
+            <div class="timeline-item">
+              <div class="tl-line"><div class="tl-dot active"></div><div class="tl-connector"></div></div>
+              <div class="tl-content">
+                <div class="tl-event">ALERT_TRIGGERED</div>
+                <div class="tl-user">system · 14:23:01</div>
+              </div>
+            </div>
+            <div class="timeline-item">
+              <div class="tl-line"><div class="tl-dot"></div></div>
+              <div class="tl-content">
+                <div class="tl-event">RULE_MATCHED</div>
+                <div class="tl-user">fee-spike-alert · 14:23:01</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-mempool">
+        <div class="metrics-grid" style="grid-template-columns:repeat(3,1fr)">
+          <div class="metric">
+            <div class="metric-label">Mempool size</div>
+            <div class="metric-value">42 MB</div>
+            <div class="metric-sub">12,847 txs</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Min relay fee</div>
+            <div class="metric-value">1</div>
+            <div class="metric-sub">sat/vB</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Max mempool</div>
+            <div class="metric-value">300 MB</div>
+            <div class="metric-sub" style="color:#22c55e">14% used</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Recent large transactions</span></div>
+          <table class="alert-table">
+            <thead><tr><th>Txid</th><th>vsize</th><th>Fee (BTC)</th><th>Fee rate</th><th>RBF</th><th>Entered</th></tr></thead>
+            <tbody>
+              <tr><td class="primary">a3f2...8c1d</td><td>180 kvB</td><td>2.3000</td><td class="sev-critical">128 s/vB</td><td><span class="badge badge-danger">yes</span></td><td>14:22:47</td></tr>
+              <tr><td class="primary">7d91...4e2a</td><td>95 kvB</td><td>0.8200</td><td class="sev-high">86 s/vB</td><td><span class="badge badge-muted">no</span></td><td>14:21:03</td></tr>
+              <tr><td class="primary">c1b4...f7d3</td><td>210 kvB</td><td>1.1500</td><td class="sev-medium">55 s/vB</td><td><span class="badge badge-muted">no</span></td><td>14:19:22</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="view" id="view-rules">
+        <div class="two-col" style="grid-template-columns:1fr 260px">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Alert rules</span>
+              <button style="font-size:12px;padding:4px 10px" onclick="sendPrompt('Me mostra como implementar o AlertRuleBuilder no frontend — o form builder schema-driven que gera as condições da regra')">New rule ↗</button>
+            </div>
+            <div class="rules-list">
+              <div class="rule-row">
+                <div style="flex:1">
+                  <div class="rule-name">Fee spike alert</div>
+                  <div class="rule-conditions">FEE_RATE &gt; 40 sats/vB</div>
+                </div>
+                <span class="badge badge-danger" style="margin-right:8px">critical</span>
+                <div class="rule-toggle"><div class="rule-toggle-knob"></div></div>
+              </div>
+              <div class="rule-row">
+                <div style="flex:1">
+                  <div class="rule-name">Large tx detector</div>
+                  <div class="rule-conditions">TX_SIZE &gt;= 100 kvB AND FEE_RATE &gt; 50</div>
+                </div>
+                <span class="badge badge-warning" style="margin-right:8px">high</span>
+                <div class="rule-toggle"><div class="rule-toggle-knob"></div></div>
+              </div>
+              <div class="rule-row">
+                <div style="flex:1">
+                  <div class="rule-name">RBF watch</div>
+                  <div class="rule-conditions">RBF_DETECTED</div>
+                </div>
+                <span class="badge badge-muted" style="margin-right:8px">medium</span>
+                <div class="rule-toggle off"><div class="rule-toggle-knob"></div></div>
+              </div>
+              <div class="rule-row">
+                <div style="flex:1">
+                  <div class="rule-name">Mempool congestion</div>
+                  <div class="rule-conditions">MEMPOOL_SIZE &gt;= 10000 txs</div>
+                </div>
+                <span class="badge badge-warning" style="margin-right:8px">high</span>
+                <div class="rule-toggle"><div class="rule-toggle-knob"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header"><span class="panel-title">New rule — builder</span><span class="badge badge-muted">Builder pattern</span></div>
+            <div class="builder">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">When...</div>
+              <div class="builder-row">
+                <span class="builder-label">Condition</span>
+                <select><option>Fee rate</option><option>Tx size</option><option>RBF</option><option>Mempool</option></select>
+              </div>
+              <div class="builder-row">
+                <span class="builder-label">Operator</span>
+                <select><option>greater than</option><option>less than</option><option>equals</option></select>
+              </div>
+              <div class="builder-row">
+                <span class="builder-label">Value</span>
+                <input type="number" value="40" style="width:80px">
+                <span style="font-size:11px;color:var(--text-muted)">sats/vB</span>
+              </div>
+              <div class="builder-and">AND</div>
+              <div class="builder-row" style="margin-top:8px">
+                <span class="builder-label">Severity</span>
+                <select><option>critical</option><option>high</option><option>medium</option><option>low</option></select>
+              </div>
+              <button style="width:100%;margin-top:12px;font-size:12px;padding:6px" onclick="sendPrompt('Me mostra o código do AlertRuleBuilder no backend e como ele se conecta com o form builder do frontend via tRPC')">Create rule ↗</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const titles = { dashboard: 'Dashboard', alerts: 'Alerts', mempool: 'Mempool', rules: 'Alert rules' }
+
+function switchView(id, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'))
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'))
+  document.getElementById('view-' + id).classList.add('active')
+  btn.classList.add('active')
+  document.getElementById('topbar-title').textContent = titles[id]
+}
+</script>
