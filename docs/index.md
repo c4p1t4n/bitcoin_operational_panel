@@ -39,10 +39,6 @@
 
 **Status:** Phase 2 complete on `feature/schema-and-domain` branch. All domain types, database schema, and tooling ready. TypeScript strict mode passes.
 
----
-
-## In Progress (🔄)
-
 ### Phase 3: Event Sourcing Infrastructure
 - ✅ **app/backend/src/infra/EventStore.ts** — Append-only log with optimistic locking via `UNIQUE(aggregate_id, version)` constraint, `append(command, events)`, `getEventsFor(aggregateId)`
 - ✅ **app/backend/src/infra/CommandBus.ts** — Command dispatch with PermissionSpec validation, handler registry, OptimisticConcurrencyError propagation
@@ -52,35 +48,43 @@
 - ✅ **app/backend/src/infra/index.ts** — Barrel file exporting public interfaces
 - ✅ **docs/features/event-sourcing/plan.md** — Complete design documentation
 
-**Status:** Phase 3 infrastructure complete on `feature/event-sourcing` branch. All modules SOLID-checked, TypeScript strict mode passes, ready for Phase 4 (RuleEngine).
+**Status:** Phase 3 infrastructure complete on `feature/event-sourcing` branch. All modules SOLID-checked, TypeScript strict mode passes.
+
+### Phase 4: Rule Engine
+- ✅ **app/backend/src/infra/RuleEngine.ts** — Chain of Responsibility; subscribes to all known domain event types via EventBus, evaluates active rules, dispatches matching commands through CommandBus (fire-and-forget, errors isolated per rule)
+- ✅ **app/backend/src/infra/rules/AlertRuleBuilder.ts** — Fluent DSL (`.whenFeeSpike(20).triggerAlert(...)`) with threshold validation
+- ✅ **app/backend/src/infra/rules/ConditionMatcher.ts**, **Rule.ts** — Strategy interface and rule vocabulary (RuleCondition, RuleAction, Rule)
+- ✅ **app/backend/src/infra/rules/matchers/** — FeeSpikeMatcher, TransactionSizeMatcher, PeerCountMatcher (stateful — tracks connected peer count)
+- ✅ **app/backend/src/domain/commands/TriggerAlert.ts** + **app/backend/src/infra/handlers/TriggerAlertHandler.ts** — new Command/Handler pair so RuleEngine can produce `AlertTriggered` via CommandBus (it previously existed only as a DomainEvent with no Command path)
+- ✅ **app/backend/src/infra/CommandBus.ts** — added `TRIGGER_ALERT` permission case
+- ✅ **docs/features/rule-engine/plan.md, implementation.md, review.md** — Complete documentation, including known trade-offs (no EventBus wildcard subscribe, in-memory peer count state, single-event evaluation model)
+
+**Status:** Phase 4 complete on `feature/rule-engine` branch. TypeScript strict mode passes. Unit tests skipped this round at dev's request — planned cases preserved in `plan.md`. Bootstrap wiring (handler registration, loading `rule_definitions` from Postgres) deferred to Phase 5.
+
+---
+
+## In Progress (🔄)
+
+_None — Phase 5 not yet started._
 
 ---
 
 ## Next Steps (TODO)
 
-### Phase 4: Rule Engine (Next)
-
-- **RuleEngine.ts** — Chain of Responsibility pattern
-  - Subscribes to EventBus, evaluates events against active alert rules
-  - Each condition type (fee spike, tx size, RBF) is a Strategy handler
-  - Produces AlertTriggered or UpdatePeerStatus commands if condition met
-
-- **AlertRuleBuilder.ts** — Fluent API
-  - DSL for building and combining rule conditions
-  - Registers with RuleEngine
-
 ### Phase 5: Backend API & Frontend Integration
 
-5. **alerts.router.ts** — tRPC router
+1. **Bootstrap/entrypoint** — wire CommandBus handler registration, RuleEngine.bootstrap() + matcher/rule registration, load `rule_definitions` from Postgres (see wiring snippet in `docs/features/rule-engine/implementation.md`)
+
+2. **alerts.router.ts** — tRPC router
    - Decorator pattern via middleware (auth, audit, rate-limit)
    - Mutations: createAlertRule, acknowledgeAlert
    - Subscriptions: onBitcoinNetworkEvent (tRPC + Redis Pub/Sub + WebSocket)
 
-6. **frontend/store/WebSocketStore.ts** — External store (not React state)
+3. **frontend/store/WebSocketStore.ts** — External store (not React state)
    - `useSyncExternalStore` + EventEmitter pattern
    - Reconnection, backpressure handling
 
-7. **frontend/components/** — React components
+4. **frontend/components/** — React components
    - OperationsTable (render props pattern)
    - AlertPanel (compound component)
    - EventTimeline (reconstructs state from event log)

@@ -8,3 +8,6 @@ export type { AcknowledgeAlertPayload } from "./AcknowledgeAlert";
 
 export { UpdatePeerStatus, UPDATE_PEER_STATUS } from "./UpdatePeerStatus";
 export type { UpdatePeerStatusPayload } from "./UpdatePeerStatus";
+
+export { TriggerAlert, TRIGGER_ALERT } from "./TriggerAlert";
+export type { TriggerAlertPayload } from "./TriggerAlert";
