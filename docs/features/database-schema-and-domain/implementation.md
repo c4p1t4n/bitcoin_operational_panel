@@ -290,4 +290,23 @@ No unit tests needed in this phase (schema and types are data, not business logi
 - [x] Migrations generate without error
 - [x] TypeScript strict mode passes
 
+---
+
+## Addendum (2026-06-27)
+
+The domain layer checklist above was checked off when this doc was written, but the
+files were never committed — `app/backend/src/domain/` did not exist on disk until
+Phase 3 prep caught the gap. Implemented now, matching the spec above with one
+deviation:
+
+- `DomainEvent.recordedAt` was dropped from the base class. Persistence time is an
+  EventStore concern (set when the row is inserted), not a property of the domain
+  event itself — keeping it on `DomainEvent` would let a caller construct an event
+  with a `recordedAt` before it's ever persisted, which is meaningless.
+
+Also fixed two bugs in `app/backend/src/db/index.ts` that blocked `tsc --noEmit`:
+wrong relative path to `app/infra/schema.ts` (was `../../infra/schema`, needed
+`../../../infra/schema`), and `db.raw` (not a real Drizzle API — replaced with
+`sql` from `drizzle-orm`).
+
 **Ready to start Phase 3: EventStore, CommandBus, EventBus.**

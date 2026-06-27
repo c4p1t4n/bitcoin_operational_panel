@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
+import { sql } from "drizzle-orm";
 import { Pool } from "pg";
-import * as schema from "../../infra/schema";
+import * as schema from "../../../infra/schema";
 
 const connectionString =
   process.env.DATABASE_URL ||
@@ -15,9 +16,7 @@ export const db = drizzle(pool, { schema });
 // Health check for database connection
 export async function checkDatabaseConnection() {
   try {
-    const result = await db.execute(
-      db.raw`SELECT 1 as connection_ok`
-    );
+    await db.execute(sql`SELECT 1 as connection_ok`);
     return {
       status: "ok",
       timestamp: new Date().toISOString(),

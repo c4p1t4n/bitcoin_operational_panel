@@ -5,8 +5,8 @@ description: >
   Use SEMPRE que o usuário disser "feature", "quero desenvolver", "implementar algo novo",
   "criar uma funcionalidade", "adicionar suporte a", ou descrever algo que ainda não existe no sistema.
   Executa obrigatoriamente três fases em sequência: Planejamento → Implementação → Revisão.
-  Cria branch `feature/{nome}`, documenta em `docs/features/{nome}/`, gera testes unitários
-  e de integração (sem executá-los), e valida SOLID em cada arquivo gerado.
+  Cria branch `feature/{nome}`, documenta em `docs/features/{nome}/`, SOMENTE QUANDO SOLICITADO gere testes unitários
+  e de integração (sem executá-los) e valida SOLID em cada arquivo gerado.
 ---
 
 # Feature skill
@@ -69,7 +69,7 @@ Isso garante o **D** (Dependency Inversion) e o **I** (Interface Segregation) do
 antes de qualquer implementação.
 
 ### 1.6 Planejar os testes
-
+SOMENTE QUANDO
 Liste os casos de teste antes de implementar:
 - Happy path
 - Edge cases (entrada vazia, valor limite, concorrência)
