@@ -1,76 +1,43 @@
-# Next Steps — Phase 2 & Beyond
+# Next Steps — Phase 3 & Beyond
 
 This doc maps the immediate next work in the mandatory order, with rough scope and key decisions for each phase.
 
 ---
 
-## Phase 2: Database Schema & Domain Layer (Next)
+## Phase 2: Database Schema & Domain Layer (✅ Complete)
 
-Create `feature/schema-and-domain` off `main`. Order: schema → domain → EventStore.
+**Status:** Done on `feature/schema-and-domain` branch (2026-06-27).
 
-### schema.ts — Drizzle ORM + Postgres
+**Deliverables:**
+- ✅ `app/infra/docker-compose.yml` — PostgreSQL running, persistent volume
+- ✅ `app/infra/schema.ts` — Drizzle ORM: users, events (append-only), alerts, operations_log, peers_status, rule_definitions
+- ✅ `app/backend/src/domain/` — DomainEvent, Command, PermissionSpec base classes + subclasses
+- ✅ `app/backend/src/db/` — Drizzle client, health checks, connection pool
+- ✅ Migrations auto-generated, schema applies to database
+- ✅ TypeScript strict mode passes
 
-**Why first:** EventStore, CommandBus, EventBus all assume this exists.
+**Key design decisions locked in:**
+- Optimistic locking via `UNIQUE(aggregate_id, version)` — detects concurrent writes
+- JSONB payload + TypeScript validation — flexibility with type safety
+- Drizzle ORM — type-safe migrations, no manual SQL
 
-**Key decisions:**
-- **events table append-only:** no UPDATE, DELETE anywhere in code. Postgres can enforce via
-  column-level permissions (SELECT-only to users, INSERT-only to application role) if you want
-  rigor, but it's mostly a code discipline issue here.
-- **Drizzle, not raw SQL:** migrations auto-generated from schema definitions.
-- **Optimistic locking:** `events` has a `version` column; `EventStore.append` checks version
-  before INSERT (fails with `OptimisticConcurrencyError` if stale).
+**What's available for Phase 3:**
+- `events` table (append-only, indexed)
+- `DomainEvent`, `Command` base types (discriminated unions)
+- `PermissionSpec` (authorization patterns)
+- `db` client (pooled connection)
 
-**Interfaces to define first (before implementation):**
-```typescript
-interface Event {
-  id: string
-  aggregateId: string
-  type: string
-  payload: unknown
-  version: number
-  timestamp: Date
-}
-
-interface EventRepository {
-  append(events: Event[]): Promise<void>
-  getEventsFor(aggregateId: string): Promise<Event[]>
-}
-```
-
-**Modules (all in `app/backend/src/infra/db/`):**
-- `schema.ts` — Drizzle tables: `events`, `alertRules`, migrations
-- `client.ts` — Postgres connection (pooled)
-
-**Tests planned:** none (schema is data layer, validated by EventStore tests later)
+**What's still TODO:**
+- EventStore (Phase 3 builds this)
+- CommandBus (Phase 3 builds this)
+- EventBus (Phase 3 builds this)
+- RuleEngine (Phase 4)
 
 ---
 
-### domain/index.ts — Events, Commands, Specifications
+## Phase 3: EventStore, CommandBus, EventBus (Next)
 
-**Why:** rest of the system speaks this vocabulary. Poller emits `MemPoolFeeSpike` domain events;
-CommandBus dispatches `CreateAlertRule` commands; PermissionSpec is used by frontend+backend.
-
-**Key decisions:**
-- **DomainEvent base:** immutable, each subclass declares its payload type
-- **Command base:** similar shape, represents a requested action
-- **PermissionSpec:** Specification pattern — reusable in server (CommandBus) and frontend (guards)
-- **No behavior in events/commands:** they're data. Behavior lives in EventStore, CommandBus, handlers.
-
-**Modules (in `app/backend/src/domain/`):**
-- `index.ts` — exports all types
-- `events/` — `DomainEvent.ts` base, then `MemPoolFeeSpike.ts`, `LargeTxDetected.ts`,
-  `NewBlockMined.ts`, `AlertTriggered.ts`
-- `commands/` — `Command.ts` base, then `AcknowledgeAlert.ts`, `CreateAlertRule.ts`
-- `specs/` — `PermissionSpec.ts` (check: user can create alerts? can acknowledge?)
-
-**Types to export for frontend (in `packages/shared/src/`):**
-- Event type discriminated unions (so frontend knows shape of each event)
-- Command type discriminated unions
-- PermissionSpec interface
-
-**Tests planned:** none (these are pure data types, validated by CommandBus/EventStore tests)
-
----
+Create `feature/event-sourcing` off `main`. Order: EventStore → CommandBus → EventBus.
 
 ### EventStore.ts — Event Sourcing Heart
 
@@ -94,7 +61,7 @@ export class OptimisticConcurrencyError extends Error {}
 
 **Module:** `app/backend/src/infra/EventStore.ts`
 
-**Dependency injection:** `EventRepository` (schema), `EventBus` (pub/sub)
+**Dependency injection:** `EventRepository` (Drizzle db), `EventBus` (pub/sub, comes in Phase 3.2)
 
 **Tests planned:** 
 - Happy path: append events, getEventsFor retrieves them
@@ -104,24 +71,56 @@ export class OptimisticConcurrencyError extends Error {}
 
 ---
 
-## Phase 3: Command & Event Bus
+### CommandBus.ts — Command Dispatch & Routing
 
-### CommandBus.ts, EventBus.ts
+**Why:** single entry point for state-changing operations. Validates permissions, dispatches to handlers, collects events.
 
-**CommandBus:**
-- `dispatch(command)` → looks up handler → calls handler → collects emitted events → calls EventStore.append
-- Handlers registered at boot (dependency injection, not a service locator)
+**Key decisions:**
+- **dispatch(command):** checks PermissionSpec, finds handler, calls handler, validates events, calls EventStore.append
+- **Handlers:** registered at boot (dependency injection, not service locator)
+- **Payload validation:** validates domain event payload before EventStore.append (mitigates JSONB risk from Phase 2)
+- **Error handling:** OptimisticConcurrencyError propagates to caller (e.g., tRPC, frontend retries)
 
-**EventBus:**
-- Built on Redis Pub/Sub (real-time, distributed)
-- Subscribers: AlertRuleBuilder (evaluates rules), frontend (WebSocket), audit trail
-- publish() called by EventStore after events persisted
+**Handlers to implement:**
+- CreateAlertRuleHandler → creates AlertRule aggregate
+- AcknowledgeAlertHandler → acknowledges Alert aggregate
+- UpdatePeerStatusHandler → updates Peer aggregate
 
-**Why Redis:** distributed (not just in-memory), used by tRPC subscriptions later
+**Module:** `app/backend/src/infra/CommandBus.ts`
+
+**Dependency injection:** EventStore, EventBus (pub/sub)
+
+**Tests planned:**
+- Permission check: unauthorized user blocked
+- Happy path: command → events → EventStore.append → EventBus.publish
+- Payload validation: invalid event payload rejected
+- Error: OptimisticConcurrencyError retried/handled
+
+---
+
+### EventBus.ts — Pub/Sub via Redis
+
+**Why:** distributed event publishing. Later used by RuleEngine, frontend subscriptions, audit trail.
+
+**Key decisions:**
+- Built on Redis (not in-memory): distributed, used by tRPC subscriptions later, survives app restart
+- **publish(events):** called by EventStore.append, fans out to subscribers
+- **subscribe(eventType, handler):** RuleEngine subscribes to domain events, triggers alert rules
+
+**Module:** `app/backend/src/infra/EventBus.ts`
+
+**Dependency injection:** Redis connection (new container in docker-compose)
+
+**Tests planned:**
+- Publish events, subscribers receive them
+- Multiple subscribers can listen to same event type
+- Errors in subscriber don't crash publisher
 
 ---
 
 ## Phase 4: Rule Engine
+
+---
 
 ### RuleEngine.ts, AlertRuleBuilder.ts, handlers/
 

@@ -28,59 +28,69 @@
 
 ---
 
+## In Progress (🔄)
+
+### Phase 2: Database Schema & Domain Layer
+
+2. ✅ **app/infra/** — Docker PostgreSQL infrastructure
+   - `docker-compose.yml`: PostgreSQL 16 container with health checks, persistent volume
+   - `schema.ts`: Drizzle ORM definition for `users`, `events`, `alerts`, `operations_log`, `peers_status`, `rule_definitions`
+   - Migrations auto-generated from schema (zero manual SQL)
+   - Postgres read to start database: `docker-compose up -d`
+
+3. ✅ **app/backend/src/domain/** — Event sourcing vocabulary
+   - `DomainEvent` base class with typed subclasses (MemPoolFeeSpike, AlertTriggered, PeerConnected, NewBlockMined)
+   - `Command` base class with subclasses (CreateAlertRule, AcknowledgeAlert, UpdatePeerStatus)
+   - `PermissionSpec` — authorization rules (reusable in CommandBus and frontend)
+   - All types exported for shared use (backend + frontend packages)
+
+4. ✅ **app/backend/src/db/** — Database connectivity
+   - Drizzle client (singleton), connection pool (pg.Pool), health checks
+   - `drizzle.config.ts` points to schema for migrations
+
+**Status:** Phase 2 complete on `feature/schema-and-domain` branch. Schema compiles, database runs, domain types export.
+
+---
+
 ## Next Steps (TODO)
 
 Follow the mandatory order per the architecture roadmap:
 
-### Phase 2: Database Schema & Domain Layer
+### Phase 3: EventStore, CommandBus, EventBus
 
-1. **schema.ts** — Drizzle ORM + Postgres
-   - `events` table: append-only (no UPDATE, DELETE) log of all domain events
-   - `alertRules` table: configuration for alert conditions
-   - Migrations wiring
-   - Permissions enforced in Postgres if desired (SELECT-only for append-only guarantee)
-
-2. **domain/index.ts** — Core business logic
-   - `DomainEvent` base class (eventId, timestamp, type, payload)
-   - Event subclasses: `MemPoolFeeSpike`, `LargeTxDetected`, `NewBlockMined`, `AlertTriggered`
-   - `Command` base class (commandId, aggregateId, type)
-   - Command subclasses: `AcknowledgeAlert`, `CreateAlertRule`
-   - `PermissionSpec` — Specification pattern for access control (reusable server + frontend)
-
-3. **EventStore.ts** — Event sourcing heart
+1. **EventStore.ts** — Event sourcing heart
    - `append(command, events)` — persists events with optimistic locking via version/OptimisticConcurrencyError
    - `getEventsFor(aggregateId)` — reconstructs state by replaying events
    - Handles the CommandBus → EventStore → EventBus publish flow
 
-### Phase 3: Command & Event Bus
-
-4. **CommandBus.ts** — Command dispatch and routing
-   - `dispatch(command)` → find handler → execute → emit domain events
+2. **CommandBus.ts** — Command dispatch and routing
+   - `dispatch(command)` → validate permissions → find handler → execute → emit domain events
    - Handlers registered at boot (dependency injection)
+   - Payload validation (mitigates JSONB flexibility risk)
 
-5. **EventBus.ts** — Pub/Sub via Redis, fan-out of domain events
+3. **EventBus.ts** — Pub/Sub via Redis, fan-out of domain events
    - Listens to EventStore.append, publishes to subscribers
-   - Used by AlertRuleBuilder, frontend subscriptions, audit trail
+   - Used by RuleEngine, frontend subscriptions, audit trail
 
 ### Phase 4: Rule Engine
 
-6. **RuleEngine.ts** — Chain of Responsibility + Strategy
+4. **RuleEngine.ts** — Chain of Responsibility + Strategy
    - Evaluates domain events against alert rules
    - Each condition type (fee spike, tx size, RBF) is a Strategy handler
    - `AlertRuleBuilder` — fluent API for building rules
 
 ### Phase 5: Backend API & Frontend Integration
 
-7. **alerts.router.ts** — tRPC router
+5. **alerts.router.ts** — tRPC router
    - Decorator pattern via middleware (auth, audit, rate-limit)
    - Mutations: createAlertRule, acknowledgeAlert
    - Subscriptions: onBitcoinNetworkEvent (tRPC + Redis Pub/Sub + WebSocket)
 
-8. **frontend/store/WebSocketStore.ts** — External store (not React state)
+6. **frontend/store/WebSocketStore.ts** — External store (not React state)
    - `useSyncExternalStore` + EventEmitter pattern
    - Reconnection, backpressure handling
 
-9. **frontend/components/** — React components
+7. **frontend/components/** — React components
    - OperationsTable (render props pattern)
    - AlertPanel (compound component)
    - EventTimeline (reconstructs state from event log)
