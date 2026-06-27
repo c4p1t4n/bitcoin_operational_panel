@@ -6,6 +6,7 @@
   ],
   "scripts": {
     "dev:backend": "npm run dev:watch-mempool -w app/backend",
+    "dev:trpc": "npm run dev -w app/backend",
     "test:backend": "npm run test -w app/backend",
     "typecheck:backend": "npm run typecheck -w app/backend"
   }

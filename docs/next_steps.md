@@ -2,7 +2,7 @@
 
 This doc maps the immediate next work in the mandatory order, with rough scope and key decisions for each phase.
 
-**Last Updated:** 2026-06-27 — Phase 4 complete, Phase 5 next
+**Last Updated:** 2026-06-27 — Phase 5a (tRPC API + bootstrap wiring) complete, Phase 5b (frontend) next
 
 ---
 
@@ -189,16 +189,62 @@ Bridges event sourcing (Phase 3) and automation (Phase 5 exposes to UI).
 
 ---
 
-## Phase 5: tRPC, Frontend
+## Phase 5a: tRPC API & Bootstrap Wiring (✅ Complete)
 
-### Backend: alerts.router.ts
+**Status:** Done on `feature/trpc-api` branch (2026-06-27). Unit tests not written this
+round, same decision as Phase 4 — planned cases documented in `docs/features/trpc-api/plan.md`.
 
-tRPC procedures:
-- `createAlertRule`: mutation
-- `acknowledgeAlert`: mutation
-- `onBitcoinNetworkEvent`: subscription (real-time event stream to frontend)
+**Why:** Phases 2-4 built domain, event sourcing, and the rule engine in isolation; nothing
+connected them to a real process or exposed them to a client. `RuleEngine.addRule()` was
+never called with real data, and there was no way to create an alert rule outside a unit
+test. This phase closes that loop end-to-end: HTTP/WS in → CommandBus → EventStore →
+EventBus → RuleEngine → CommandBus (TriggerAlert) → EventStore → EventBus → tRPC
+subscription back to the client.
 
-Middleware: auth, audit, rate-limit (Decorator pattern)
+**Deliverables:**
+- ✅ `app/backend/src/domain/events/AlertRuleCreated.ts` — new DomainEvent; fixes
+  `CreateAlertRuleHandler`, which was a stub returning `[]` and never persisting anything
+- ✅ `app/backend/src/infra/rules/RuleDefinitionRepository.ts` + `RuleDefinitionProjector.ts`
+  + `RuleDefinitionCompiler.ts` — `rule_definitions` treated as a read-model, not an
+  event-sourced aggregate: handler emits `AlertRuleCreated` → projector persists the row →
+  compiler turns JSONB `configuration` into a `Rule` via `AlertRuleBuilder`
+- ✅ `app/backend/src/bootstrap.ts` — composition root: EventBus, EventStore, CommandBus
+  (4 handlers registered), RuleEngine (3 matchers registered), loads active rules from
+  `rule_definitions` at boot, calls `RuleEngine.bootstrap()`
+- ✅ `app/backend/src/trpc/` — `context.ts` (placeholder auth via `x-user-id` header),
+  `trpc.ts`, `middleware/{auth,audit,rateLimit}.ts` (Decorator chain), `routers/alerts.router.ts`
+  (`createAlertRule`, `acknowledgeAlert` mutations; `onBitcoinNetworkEvent` subscription)
+- ✅ `app/backend/src/server.ts` — HTTP (`@trpc/server/adapters/standalone`) + WS
+  (`@trpc/server/adapters/ws`) entrypoint sharing the same router/context, graceful shutdown
+- ✅ `app/backend/src/infra/CommandBus.ts` — `dispatch(command, actingUser?)`, backward
+  compatible, lets the CommandBus singleton serve both the RuleEngine (system actor) and
+  per-request tRPC users (real actor)
+- ✅ `app/backend/src/db/index.ts` — exports `Database` type, fixing a latent type
+  mismatch between the schema-typed client and the bare `NodePgDatabase` type used by
+  `EventStore`/`RuleDefinitionRepository` (only surfaced once real wiring exercised it)
+- ✅ TypeScript strict mode passes
+- ✅ `docs/features/trpc-api/{plan,implementation,review}.md` — full design documentation
+
+**Key design decisions locked in:**
+- `rule_definitions` is a read-model projected from `AlertRuleCreated`, not reconstructed
+  by event replay — keeps the handler pure and reuses the existing indexes
+- EventBus stays in-memory (no Redis migration this round) — documented limitation:
+  `onBitcoinNetworkEvent` and rate-limiting only work within a single process instance
+- Auth is a placeholder (`x-user-id` header → `users` lookup), consistent with the existing
+  `PermissionSpec` placeholder posture — flagged as a TODO before any non-localhost exposure
+
+**What's still TODO (deferred to Phase 5b / later):**
+- Frontend (decided with the dev: kept out of this feature, scoped separately)
+- Real authentication (session/JWT) replacing the `x-user-id` header
+- EventBus migration to Redis for multi-instance support
+- `PeerCountMatcher` Redis migration (carried over from Phase 4)
+- Unit tests (planned cases in `docs/features/trpc-api/plan.md`)
+- Pre-existing, unrelated failing test in `CommandBus.test.ts` ("calls handler and persists
+  events" — duplicate handler registration); confirmed failing on `main` before this branch
+
+---
+
+## Phase 5b: Frontend
 
 ### Frontend: store + components
 

@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import type { DomainEvent } from "../../domain";
+import { AlertRuleCreated } from "../../domain/events";
 import type { CreateAlertRule } from "../../domain/commands";
 import type { CommandHandler } from "../CommandBus";
 
@@ -10,8 +12,10 @@ import type { CommandHandler } from "../CommandBus";
  * Por que este pattern: cada command type tem uma estratégia de handler diferente;
  * novos handlers entram sem modificar CommandBus (Open/Closed).
  *
- * Responsabilidade: validar payload, gerar DomainEvent(s) representando a mudança.
- * Não faz: persistência (EventStore), permissões (CommandBus), pub/sub (EventBus).
+ * Responsabilidade: validar payload, gerar o evento AlertRuleCreated.
+ * Não faz: persistência (EventStore), permissões (CommandBus), pub/sub (EventBus),
+ * gravação em `rule_definitions` (responsabilidade do RuleDefinitionProjector, que
+ * reage a este evento via EventBus).
  */
 
 export class CreateAlertRuleHandler implements CommandHandler {
@@ -19,19 +23,30 @@ export class CreateAlertRuleHandler implements CommandHandler {
 
   /**
    * Processa criação de nova regra de alerta.
-   * Gera um evento AlertTriggered se criação é válida.
-   * TODO: Phase 4 validará contra regras complexas (syntax, incompatibilidades).
+   * O aggregateId do command, se fornecido, identifica a regra; caso contrário um novo
+   * id é gerado aqui — isso permite que o caller (tRPC router) não precise gerar UUID.
    *
    * @param command - CreateAlertRule command
-   * @returns array com um AlertTriggered event
+   * @returns array com um AlertRuleCreated event
+   * @throws Error se `configuration` estiver vazio
    */
   async handle(command: CreateAlertRule): Promise<DomainEvent[]> {
-    // TODO: Phase 3+ validações de payload
-    // - configuration malformado?
-    // - ruleType suportado?
+    const { name, description, ruleType, configuration, requestedByUserId } = command.payload;
 
-    // Para MVP, apenas gera o evento
-    // Phase 4 RuleEngine validará e compilará as regras
-    return [];
+    if (!configuration || Object.keys(configuration).length === 0) {
+      throw new Error(`CreateAlertRule "${name}" requires a non-empty configuration`);
+    }
+
+    const aggregateId = command.aggregateId || randomUUID();
+
+    const event = new AlertRuleCreated(aggregateId, 1, {
+      name,
+      description,
+      ruleType,
+      configuration,
+      requestedByUserId,
+    });
+
+    return [event];
   }
 }

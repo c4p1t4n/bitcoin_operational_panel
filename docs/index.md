@@ -61,30 +61,35 @@
 
 **Status:** Phase 4 complete on `feature/rule-engine` branch. TypeScript strict mode passes. Unit tests skipped this round at dev's request — planned cases preserved in `plan.md`. Bootstrap wiring (handler registration, loading `rule_definitions` from Postgres) deferred to Phase 5.
 
+### Phase 5a: tRPC API & Bootstrap Wiring
+- ✅ **app/backend/src/domain/events/AlertRuleCreated.ts** — new DomainEvent; fixes the `CreateAlertRuleHandler` stub that previously returned `[]` and never persisted anything
+- ✅ **app/backend/src/infra/rules/RuleDefinitionRepository.ts**, **RuleDefinitionProjector.ts**, **RuleDefinitionCompiler.ts** — `rule_definitions` treated as a read-model: handler emits `AlertRuleCreated` → projector persists the row → compiler turns JSONB `configuration` into a `Rule` via `AlertRuleBuilder`
+- ✅ **app/backend/src/bootstrap.ts** — composition root: wires EventBus, EventStore, CommandBus (4 handlers registered), RuleEngine (3 matchers registered), loads active rules from `rule_definitions`, calls `RuleEngine.bootstrap()`
+- ✅ **app/backend/src/trpc/** — `context.ts` (placeholder `x-user-id` auth), `trpc.ts`, `middleware/{auth,audit,rateLimit}.ts` (Decorator chain), `routers/alerts.router.ts` (`createAlertRule`, `acknowledgeAlert` mutations; `onBitcoinNetworkEvent` subscription)
+- ✅ **app/backend/src/server.ts** — HTTP (`@trpc/server/adapters/standalone`) + WS (`@trpc/server/adapters/ws`) entrypoint, graceful shutdown
+- ✅ **app/backend/src/infra/CommandBus.ts** — `dispatch(command, actingUser?)`, backward-compatible, lets the singleton CommandBus serve both the RuleEngine (system actor) and per-request tRPC users
+- ✅ **app/backend/src/db/index.ts** — exports `Database` type (`NodePgDatabase<typeof schema>`), fixing a latent type mismatch between the schema-typed client and the bare `NodePgDatabase` type used by `EventStore`/`RuleDefinitionRepository`
+- ✅ **docs/features/trpc-api/plan.md, implementation.md, review.md** — full documentation
+
+**Status:** Phase 5a complete on `feature/trpc-api` branch. TypeScript strict mode passes. Frontend deferred to a separate feature, by agreement with the dev. Unit tests not written this round (same decision as Phase 4).
+
 ---
 
 ## In Progress (🔄)
 
-_None — Phase 5 not yet started._
+_None — Phase 5b (frontend) not yet started._
 
 ---
 
 ## Next Steps (TODO)
 
-### Phase 5: Backend API & Frontend Integration
+### Phase 5b: Frontend Integration
 
-1. **Bootstrap/entrypoint** — wire CommandBus handler registration, RuleEngine.bootstrap() + matcher/rule registration, load `rule_definitions` from Postgres (see wiring snippet in `docs/features/rule-engine/implementation.md`)
-
-2. **alerts.router.ts** — tRPC router
-   - Decorator pattern via middleware (auth, audit, rate-limit)
-   - Mutations: createAlertRule, acknowledgeAlert
-   - Subscriptions: onBitcoinNetworkEvent (tRPC + Redis Pub/Sub + WebSocket)
-
-3. **frontend/store/WebSocketStore.ts** — External store (not React state)
+1. **frontend/store/WebSocketStore.ts** — External store (not React state)
    - `useSyncExternalStore` + EventEmitter pattern
    - Reconnection, backpressure handling
 
-4. **frontend/components/** — React components
+2. **frontend/components/** — React components
    - OperationsTable (render props pattern)
    - AlertPanel (compound component)
    - EventTimeline (reconstructs state from event log)
