@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { Command, DomainEvent } from "../domain";
 import { events as eventsTable } from "../../../infra/schema";
+import type { Database } from "../db";
 import type { IEventBus } from "./EventBus";
 
 /**
@@ -40,7 +40,7 @@ export interface IEventStore {
 
 export class EventStore implements IEventStore {
   constructor(
-    private readonly db: NodePgDatabase,
+    private readonly db: Database,
     private readonly eventBus: IEventBus
   ) {}
 

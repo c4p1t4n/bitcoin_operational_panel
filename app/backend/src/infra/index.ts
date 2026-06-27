@@ -24,3 +24,8 @@ export { AlertRuleBuilder } from "./rules/AlertRuleBuilder";
 export { FeeSpikeMatcher } from "./rules/matchers/FeeSpikeMatcher";
 export { TransactionSizeMatcher } from "./rules/matchers/TransactionSizeMatcher";
 export { PeerCountMatcher } from "./rules/matchers/PeerCountMatcher";
+
+export { DrizzleRuleDefinitionRepository } from "./rules/RuleDefinitionRepository";
+export type { RuleDefinitionRepository, RuleDefinitionRow } from "./rules/RuleDefinitionRepository";
+export { RuleDefinitionProjector } from "./rules/RuleDefinitionProjector";
+export { RuleDefinitionCompiler, RuleDefinitionCompilationError } from "./rules/RuleDefinitionCompiler";

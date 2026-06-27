@@ -48,7 +48,7 @@ export class PermissionError extends Error {
 }
 
 export interface ICommandDispatcher {
-  dispatch(command: Command): Promise<DomainEvent[]>;
+  dispatch(command: Command, actingUser?: User): Promise<DomainEvent[]>;
 }
 
 export class CommandBus implements ICommandDispatcher {
@@ -82,13 +82,18 @@ export class CommandBus implements ICommandDispatcher {
    * executar handler → validar eventos → persistir → retornar.
    *
    * @param command - comando a executar
+   * @param actingUser - usuário a usar na validação de permissão, sobrescrevendo o
+   * `getCurrentUser` injetado no construtor. Usado por callers que servem múltiplos
+   * usuários a partir de uma única instância de CommandBus (ex: tRPC, onde cada
+   * requisição tem seu próprio usuário autenticado, ao contrário do RuleEngine que
+   * sempre despacha como ator de sistema).
    * @returns array de DomainEvents produzidos pelo handler
    * @throws CommandNotFoundError - se não há handler registrado
    * @throws PermissionError - se usuário não tem permissão
    * @throws OptimisticConcurrencyError - se versão do agregado mudou (do EventStore)
    */
-  async dispatch(command: Command): Promise<DomainEvent[]> {
-    const user = this.getCurrentUser();
+  async dispatch(command: Command, actingUser?: User): Promise<DomainEvent[]> {
+    const user = actingUser ?? this.getCurrentUser();
     if (!user) {
       throw new PermissionError("User not authenticated");
     }

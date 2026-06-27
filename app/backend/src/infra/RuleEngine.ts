@@ -1,28 +1,9 @@
 import type { DomainEvent } from "../domain";
-import {
-  MEMPOOL_FEE_SPIKE,
-  ALERT_TRIGGERED,
-  ALERT_ACKNOWLEDGED,
-  PEER_CONNECTED,
-  PEER_DISCONNECTED,
-  NEW_BLOCK_MINED,
-  TRANSACTION_DETECTED,
-} from "../domain/events";
+import { ALL_DOMAIN_EVENT_TYPES } from "../domain/events";
 import type { ICommandDispatcher } from "./CommandBus";
 import type { IEventBus } from "./EventBus";
 import type { Rule } from "./rules/Rule";
 import type { ConditionMatcher } from "./rules/ConditionMatcher";
-
-/** Todos os tipos de evento de domínio conhecidos — usado para subscrever o RuleEngine a cada um. */
-const ALL_EVENT_TYPES = [
-  MEMPOOL_FEE_SPIKE,
-  ALERT_TRIGGERED,
-  ALERT_ACKNOWLEDGED,
-  PEER_CONNECTED,
-  PEER_DISCONNECTED,
-  NEW_BLOCK_MINED,
-  TRANSACTION_DETECTED,
-] as const;
 
 /**
  * @module RuleEngine
@@ -85,7 +66,7 @@ export class RuleEngine {
       throw new Error("RuleEngine already bootstrapped");
     }
 
-    for (const eventType of ALL_EVENT_TYPES) {
+    for (const eventType of ALL_DOMAIN_EVENT_TYPES) {
       const unsubscribe = this.eventBus.subscribe(eventType, (event) =>
         this.evaluateEvent(event)
       );
