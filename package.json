@@ -1,9 +1,12 @@
 {
-  "dependencies": {
-    "@trpc/client": "^11.18.0",
-    "@trpc/server": "^11.18.0"
-  },
-  "devDependencies": {
-    "vite": "^8.1.0"
+  "name": "bitcoin-ops-panel",
+  "private": true,
+  "workspaces": [
+    "app/backend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev:watch-mempool -w app/backend",
+    "test:backend": "npm run test -w app/backend",
+    "typecheck:backend": "npm run typecheck -w app/backend"
   }
 }
