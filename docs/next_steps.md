@@ -2,7 +2,7 @@
 
 This doc maps the immediate next work in the mandatory order, with rough scope and key decisions for each phase.
 
-**Last Updated:** 2026-06-27 — Phase 5a (tRPC API + bootstrap wiring) complete, Phase 5b (frontend) next
+**Last Updated:** 2026-06-28 — Phase 5b (frontend) complete; read queries + real auth next
 
 ---
 
@@ -244,17 +244,52 @@ subscription back to the client.
 
 ---
 
-## Phase 5b: Frontend
+## Phase 5b: Frontend (✅ Complete)
 
-### Frontend: store + components
+**Status:** Done on `feature/frontend-dashboard` branch (2026-06-28), based on
+`feature/trpc-api` (not yet merged to `main` — decided with the dev, since the frontend
+needs `AppRouter` for type-safe calls). Unit tests not written this round, same decision
+as Phases 4 and 5a.
 
-`WebSocketStore.ts` — external store, uses `useSyncExternalStore`
+**Why:** Phase 5a left the tRPC API with no client. Without a frontend there was no way to
+see domain events in real time or create/acknowledge alerts outside of manual `curl` calls.
 
-Components:
-- OperationsTable (render props)
-- AlertPanel (compound)
-- EventTimeline (replays event log)
-- MempoolWidget (live metrics)
+**Deliverables:**
+- ✅ `app/frontend/` — new npm workspace (Vite + React 18 + TypeScript strict)
+- ✅ `app/frontend/src/trpc/client.ts` — `createWSClient`/`createTRPCClient` with
+  `splitLink` (`wsLink` for the subscription, `httpBatchLink` for mutations)
+- ✅ `app/frontend/src/store/WebSocketFeed.ts` — external store satisfying the
+  `useSyncExternalStore` contract; circular event buffer (backpressure), connection-state
+  tracking, reconnects when the current user changes
+- ✅ `app/frontend/src/components/` — `OperationsTable` (render props) + `OperationsView`,
+  `AlertPanel` (compound component), `EventTimeline`, `MempoolWidget`, plus `UserSwitcher`
+  and `CreateAlertRuleForm` for the auth/rule-creation placeholders
+- ✅ `app/backend/src/trpc/context.ts` — small fix: resolves the user from
+  `connectionParams` (WS) as well as the `x-user-id` header (HTTP) — browsers can't set
+  custom WS handshake headers, so the WS path needed a different mechanism
+- ✅ TypeScript strict mode passes (both workspaces)
+- ✅ Manually verified end-to-end with the Vite dev server + headless Chromium (no
+  `chromium-cli` in this environment, used `playwright-core` directly) — found and fixed a
+  real `useSyncExternalStore` infinite-render-loop bug along the way
+- ✅ `docs/features/frontend-dashboard/{plan,implementation,review}.md`
+
+**Key design decisions locked in:**
+- No `@trpc/react-query` — the roadmap explicitly asked for an external store, not
+  React-managed data fetching; `WebSocketFeed` lives outside the component tree
+- Frontend defines its own event-type vocabulary (`src/domain/events.ts`) instead of
+  importing backend domain types as values — the backend's `DomainEvent` base class
+  imports `node:crypto`, which would break the browser bundle on a value import (type-only
+  imports, like `AppRouter`, are erased at compile time and are safe)
+- WS auth uses `connectionParams`, not headers (browser limitation); HTTP keeps the header
+
+**What's still TODO (deferred to Phase 6 / later):**
+- Backend read/query procedures (`alerts.list`, `operations.list`) — without them, the
+  frontend has no historical data; a page reload zeroes the event buffer
+- `PresenceAvatars` (mentioned in earlier docs) — dropped: no user-presence domain event
+  exists to back it
+- Real authentication, replacing the `x-user-id`/`connectionParams` placeholder
+- Unit tests (planned cases in `docs/features/frontend-dashboard/plan.md`)
+- Merging `feature/trpc-api` and `feature/frontend-dashboard` into `main`
 
 ---
 

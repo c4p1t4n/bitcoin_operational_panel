@@ -85,7 +85,7 @@ gap real: `CreateAlertRuleHandler` era um stub que nunca persistia nada — agor
 
 ## Próximos passos sugeridos
 
-1. Frontend: `WebSocketStore.ts` consumindo `onBitcoinNetworkEvent` via `@trpc/client`'s
+1. Frontend: `WebSocketFeed.ts` consumindo `onBitcoinNetworkEvent` via `@trpc/client`'s
    `wsLink`, mais os componentes (`OperationsTable`, `AlertPanel`, `EventTimeline`, `MempoolWidget`).
 2. Decidir e implementar autenticação real — o header placeholder deve ser substituído
    antes de qualquer exposição fora de localhost.

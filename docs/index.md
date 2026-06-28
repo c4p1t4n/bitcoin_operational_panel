@@ -73,28 +73,34 @@
 
 **Status:** Phase 5a complete on `feature/trpc-api` branch. TypeScript strict mode passes. Frontend deferred to a separate feature, by agreement with the dev. Unit tests not written this round (same decision as Phase 4).
 
+### Phase 5b: Frontend Integration
+- ✅ **app/frontend/** — new npm workspace: Vite + React 18 + TypeScript strict, no `@trpc/react-query` (external store required by the roadmap, not React-managed data fetching)
+- ✅ **app/frontend/src/trpc/client.ts** — `createWSClient` (with `connectionParams`, since browsers can't set custom WS handshake headers) + `createTRPCClient` (`splitLink`: subscriptions → `wsLink`, mutations → `httpBatchLink` with `x-user-id` header)
+- ✅ **app/frontend/src/store/WebSocketFeed.ts** — external store implementing the `useSyncExternalStore` contract; circular buffer (max 500 events, drops oldest — backpressure), connection-state tracking, reconnects on user switch
+- ✅ **app/frontend/src/domain/events.ts** — frontend-local event types/constants (deliberately *not* imported from the backend — those modules pull in `node:crypto` via `DomainEvent`, which would break the browser bundle on a value import)
+- ✅ **app/frontend/src/components/** — `OperationsTable` (render props) + `OperationsView` adapter, `AlertPanel` (compound component), `EventTimeline`, `MempoolWidget`, plus `UserSwitcher` and `CreateAlertRuleForm` (minimal UI for the auth/rule-creation placeholders)
+- ✅ **app/backend/src/trpc/context.ts** — small backend fix: resolves the current user from `connectionParams` (WS) in addition to the `x-user-id` header (HTTP)
+- ✅ Manually verified with the Vite dev server + headless Chromium (no `chromium-cli` available in this environment) — caught and fixed a real `useSyncExternalStore` infinite-render-loop bug (`getSnapshot()` was returning a new object on every call)
+- ✅ **docs/features/frontend-dashboard/plan.md, implementation.md, review.md** — full documentation
+- ❌ **PresenceAvatars** — dropped from scope: no user-presence domain event exists (`PeerConnected`/`PeerDisconnected` are Bitcoin node peers, not panel users), so there's nothing to render
+
+**Status:** Phase 5b complete on `feature/frontend-dashboard` branch (based on `feature/trpc-api`, not yet merged to `main`). TypeScript strict mode passes for both workspaces. No historical/persisted data — components are driven entirely by the live WebSocket stream since page load (no read/query procedures exist on the backend yet).
+
 ---
 
 ## In Progress (🔄)
 
-_None — Phase 5b (frontend) not yet started._
+_None._
 
 ---
 
 ## Next Steps (TODO)
 
-### Phase 5b: Frontend Integration
+### Phase 6: Read Queries & Real Auth
 
-1. **frontend/store/WebSocketStore.ts** — External store (not React state)
-   - `useSyncExternalStore` + EventEmitter pattern
-   - Reconnection, backpressure handling
-
-2. **frontend/components/** — React components
-   - OperationsTable (render props pattern)
-   - AlertPanel (compound component)
-   - EventTimeline (reconstructs state from event log)
-   - MempoolWidget (real-time metrics)
-   - PresenceAvatars (who's online)
+1. Backend read procedures (`alerts.list`, `operations.list`) so the frontend survives a page reload
+2. Real authentication, replacing the `x-user-id`/`connectionParams` placeholder on both sides
+3. Merge `feature/trpc-api` and `feature/frontend-dashboard` into `main`
 
 ---
 

@@ -12,8 +12,10 @@ import type { AppContext } from "../bootstrap";
  * Responsabilidade: resolver o usuário atual a partir do request, expor `commandBus` e
  * `eventBus` (vindos do AppContext do bootstrap) aos procedures.
  * Não faz: autenticação real — placeholder até existir um sistema de auth (ver plan.md,
- * Decisão 3). Lê `x-user-id` do header e busca o usuário em `users`; nenhuma verificação
- * de senha/sessão/token é feita.
+ * Decisão 3). Lê o id do usuário do header `x-user-id` (HTTP) ou de `connectionParams`
+ * (WS — navegadores não permitem headers customizados no handshake de WebSocket, por
+ * isso o client WS usa `createWSClient({ connectionParams })` em vez de headers);
+ * nenhuma verificação de senha/sessão/token é feita.
  */
 
 export interface TrpcContext {
@@ -24,18 +26,32 @@ export interface TrpcContext {
 }
 
 /**
- * Resolve o usuário atual a partir do header `x-user-id`.
+ * Resolve o id do usuário a partir do header `x-user-id` (HTTP) ou de `connectionParams.userId`
+ * (WS, populado por `createWSClient({ connectionParams })` no client).
+ *
+ * @param req - request HTTP ou WS (ambos expõem `.headers`)
+ * @param connectionParams - presente apenas em conexões WS
+ */
+function resolveUserId(
+  req: IncomingMessage,
+  connectionParams: Record<string, string | undefined> | null | undefined
+): string | null {
+  const fromConnectionParams = connectionParams?.userId;
+  if (fromConnectionParams) return fromConnectionParams;
+
+  const fromHeader = req.headers["x-user-id"];
+  return typeof fromHeader === "string" ? fromHeader : null;
+}
+
+/**
+ * Carrega o usuário em `users` a partir do id resolvido.
  *
  * @param db - cliente Drizzle
- * @param req - request HTTP ou WS (ambos expõem `.headers`)
- * @returns User se o header está presente e corresponde a um usuário ativo, senão null
+ * @param userId - id resolvido por `resolveUserId`, ou null
+ * @returns User se o id corresponde a um usuário ativo, senão null
  */
-async function resolveCurrentUser(
-  db: Database,
-  req: IncomingMessage
-): Promise<User | null> {
-  const userId = req.headers["x-user-id"];
-  if (!userId || typeof userId !== "string") return null;
+async function loadUser(db: Database, userId: string | null): Promise<User | null> {
+  if (!userId) return null;
 
   const [row] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!row || !row.isActive) return null;
@@ -50,8 +66,16 @@ async function resolveCurrentUser(
  * @param app - AppContext produzido por `bootstrap()`
  */
 export function createContextFactory(db: Database, app: AppContext) {
-  return async function createContext({ req }: { req: IncomingMessage }): Promise<TrpcContext> {
-    const currentUser = await resolveCurrentUser(db, req);
+  return async function createContext({
+    req,
+    info,
+  }: {
+    req: IncomingMessage;
+    info?: { connectionParams?: Record<string, string | undefined> | null };
+  }): Promise<TrpcContext> {
+    const userId = resolveUserId(req, info?.connectionParams);
+    const currentUser = await loadUser(db, userId);
+
     return {
       db,
       commandBus: app.commandBus,
