@@ -1,3 +1,4 @@
+import TableCell from "@mui/material/TableCell";
 import { useDomainEvents } from "../../hooks/useDomainEvents";
 import { OperationsTable } from "./OperationsTable";
 import type { DomainEventView } from "../../domain/events";
@@ -22,12 +23,12 @@ export function OperationsView() {
       emptyMessage="No operations received yet."
       renderRow={(row) => (
         <>
-          <td>{row.occurredAt.toLocaleTimeString()}</td>
-          <td>{row.eventType}</td>
-          <td>
+          <TableCell>{row.occurredAt.toLocaleTimeString()}</TableCell>
+          <TableCell>{row.eventType}</TableCell>
+          <TableCell>
             {row.aggregateType} <code>{row.aggregateId.slice(0, 8)}</code>
-          </td>
-          <td>{row.version}</td>
+          </TableCell>
+          <TableCell>{row.version}</TableCell>
         </>
       )}
     />

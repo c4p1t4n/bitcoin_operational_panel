@@ -1,7 +1,17 @@
 import { useState } from "react";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import Button from "@mui/material/Button";
+import Alert from "@mui/material/Alert";
+import Typography from "@mui/material/Typography";
 import { trpcClient } from "../../trpc/client";
 
 type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+const SEVERITIES: readonly Severity[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
 /**
  * @module CreateAlertRuleForm
@@ -39,40 +49,57 @@ export function CreateAlertRuleForm() {
   };
 
   return (
-    <form className="create-alert-rule-form" onSubmit={submit}>
-      <h3>New fee-spike alert rule</h3>
-      <label>
-        Rule name
-        <input value={name} onChange={(e) => setName(e.target.value)} required />
-      </label>
-      <label>
-        Alert title
-        <input value={title} onChange={(e) => setTitle(e.target.value)} required />
-      </label>
-      <label>
-        Fee spike threshold (%)
-        <input
-          type="number"
-          min={1}
-          max={100}
-          value={threshold}
-          onChange={(e) => setThreshold(Number(e.target.value))}
-        />
-      </label>
-      <label>
-        Severity
-        <select value={severity} onChange={(e) => setSeverity(e.target.value as Severity)}>
-          <option value="LOW">LOW</option>
-          <option value="MEDIUM">MEDIUM</option>
-          <option value="HIGH">HIGH</option>
-          <option value="CRITICAL">CRITICAL</option>
-        </select>
-      </label>
-      <button type="submit" disabled={status === "submitting"}>
-        {status === "submitting" ? "Creating..." : "Create rule"}
-      </button>
-      {status === "done" && <p className="create-alert-rule-form__success">Rule created.</p>}
-      {status === "error" && <p className="create-alert-rule-form__error">Failed — check console.</p>}
-    </form>
+    <Card variant="outlined" sx={{ height: "100%" }}>
+      <CardContent>
+        <Stack component="form" spacing={2} onSubmit={submit}>
+          <Typography variant="h2" component="h3">
+            New fee-spike alert rule
+          </Typography>
+
+          <TextField
+            size="small"
+            label="Rule name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <TextField
+            size="small"
+            label="Alert title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+          <TextField
+            size="small"
+            type="number"
+            label="Fee spike threshold (%)"
+            value={threshold}
+            onChange={(e) => setThreshold(Number(e.target.value))}
+            slotProps={{ htmlInput: { min: 1, max: 100 } }}
+          />
+          <TextField
+            size="small"
+            select
+            label="Severity"
+            value={severity}
+            onChange={(e) => setSeverity(e.target.value as Severity)}
+          >
+            {SEVERITIES.map((value) => (
+              <MenuItem key={value} value={value}>
+                {value}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <Button type="submit" variant="contained" disabled={status === "submitting"}>
+            {status === "submitting" ? "Creating…" : "Create rule"}
+          </Button>
+
+          {status === "done" && <Alert severity="success">Rule created.</Alert>}
+          {status === "error" && <Alert severity="error">Failed — check console.</Alert>}
+        </Stack>
+      </CardContent>
+    </Card>
   );
 }

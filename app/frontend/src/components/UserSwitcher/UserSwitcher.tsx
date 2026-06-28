@@ -1,4 +1,8 @@
 import { useState, useSyncExternalStore } from "react";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Button from "@mui/material/Button";
+import Tooltip from "@mui/material/Tooltip";
 import { getCurrentUserId, setCurrentUserId, onCurrentUserIdChange } from "../../auth/currentUser";
 
 /**
@@ -12,19 +16,29 @@ export function UserSwitcher() {
   const [draft, setDraft] = useState(currentUserId ?? "");
 
   return (
-    <form
-      className="user-switcher"
+    <Stack
+      component="form"
+      direction="row"
+      spacing={1}
+      alignItems="center"
       onSubmit={(e) => {
         e.preventDefault();
         setCurrentUserId(draft.trim() || null);
       }}
     >
-      <label>
-        User id
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="users.id from Postgres" />
-      </label>
-      <button type="submit">Set user</button>
-      {currentUserId && <span className="user-switcher__current">Current: {currentUserId}</span>}
-    </form>
+      <Tooltip title={currentUserId ? `Current: ${currentUserId}` : "No user set"}>
+        <TextField
+          size="small"
+          label="User id"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="users.id from Postgres"
+          sx={{ minWidth: 200 }}
+        />
+      </Tooltip>
+      <Button type="submit" variant="contained" size="small">
+        Set user
+      </Button>
+    </Stack>
   );
 }

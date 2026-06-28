@@ -1,4 +1,13 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Stack from "@mui/material/Stack";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemText from "@mui/material/ListItemText";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
 import {
   ALERT_TRIGGERED,
   ALERT_ACKNOWLEDGED,
@@ -21,6 +30,14 @@ interface AlertPanelContextValue {
   acknowledgingId: string | null;
   acknowledge: (alertId: string, note?: string) => Promise<void>;
 }
+
+/** Cor MUI do chip de severidade. */
+const SEVERITY_COLOR = {
+  CRITICAL: "error",
+  HIGH: "warning",
+  MEDIUM: "info",
+  LOW: "default",
+} as const;
 
 const AlertPanelContext = createContext<AlertPanelContextValue | null>(null);
 
@@ -65,7 +82,7 @@ function deriveAlerts(events: ReturnType<typeof useDomainEvents>["events"]): Ale
 
 /**
  * @module AlertPanel
- * @description Painel de alertas — root de um Compound Component.
+ * @description Painel de alertas — root de um Compound Component (agora com chrome MUI).
  *
  * PATTERN: Compound Component
  * Por que este pattern: `AlertPanel.Header`/`List`/`Item` compartilham estado (lista de
@@ -93,7 +110,9 @@ function AlertPanelRoot({ children }: { children: ReactNode }) {
 
   return (
     <AlertPanelContext.Provider value={{ alerts, acknowledgingId, acknowledge }}>
-      <section className="alert-panel">{children}</section>
+      <Card variant="outlined" sx={{ height: "100%" }}>
+        <CardContent>{children}</CardContent>
+      </Card>
     </AlertPanelContext.Provider>
   );
 }
@@ -102,24 +121,33 @@ function Header({ children }: { children: ReactNode }) {
   const { alerts } = useAlertPanelContext();
   const openCount = alerts.filter((a) => a.status === "open").length;
   return (
-    <header className="alert-panel__header">
+    <Stack
+      direction="row"
+      alignItems="center"
+      justifyContent="space-between"
+      sx={{ mb: 1 }}
+    >
       {children}
-      <span className="alert-panel__count">{openCount} open</span>
-    </header>
+      <Chip size="small" color="primary" variant="outlined" label={`${openCount} open`} />
+    </Stack>
   );
 }
 
-function List() {
+function List_() {
   const { alerts } = useAlertPanelContext();
   if (alerts.length === 0) {
-    return <p className="alert-panel__empty">No alerts yet.</p>;
+    return (
+      <Typography variant="body2" color="text.secondary">
+        No alerts yet.
+      </Typography>
+    );
   }
   return (
-    <ul className="alert-panel__list">
+    <List dense disablePadding>
       {alerts.map((alert) => (
         <Item key={alert.alertId} alert={alert} />
       ))}
-    </ul>
+    </List>
   );
 }
 
@@ -128,21 +156,41 @@ function Item({ alert }: { alert: AlertView }) {
   const isAcknowledging = acknowledgingId === alert.alertId;
 
   return (
-    <li className={`alert-panel__item alert-panel__item--${alert.severity.toLowerCase()}`}>
-      <strong>{alert.title}</strong>
-      <span className="alert-panel__severity">{alert.severity}</span>
-      {alert.description && <p>{alert.description}</p>}
-      {alert.status === "open" ? (
-        <button disabled={isAcknowledging} onClick={() => acknowledge(alert.alertId)}>
-          {isAcknowledging ? "Acknowledging..." : "Acknowledge"}
-        </button>
-      ) : (
-        <span className="alert-panel__acknowledged">
-          Acknowledged{alert.acknowledgedByUserId ? ` by ${alert.acknowledgedByUserId}` : ""}
-        </span>
-      )}
-    </li>
+    <ListItem
+      divider
+      alignItems="flex-start"
+      secondaryAction={
+        alert.status === "open" ? (
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={isAcknowledging}
+            onClick={() => acknowledge(alert.alertId)}
+          >
+            {isAcknowledging ? "Acknowledging…" : "Acknowledge"}
+          </Button>
+        ) : (
+          <Chip size="small" color="success" variant="outlined" label="Acknowledged" />
+        )
+      }
+    >
+      <ListItemText
+        primary={
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="body2" fontWeight={600}>
+              {alert.title}
+            </Typography>
+            <Chip size="small" color={SEVERITY_COLOR[alert.severity]} label={alert.severity} />
+          </Stack>
+        }
+        secondary={
+          alert.status === "acknowledged" && alert.acknowledgedByUserId
+            ? `Acknowledged by ${alert.acknowledgedByUserId}`
+            : alert.description
+        }
+      />
+    </ListItem>
   );
 }
 
-export const AlertPanel = Object.assign(AlertPanelRoot, { Header, List, Item });
+export const AlertPanel = Object.assign(AlertPanelRoot, { Header, List: List_, Item });

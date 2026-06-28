@@ -1,4 +1,7 @@
 import { useMemo } from "react";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Typography from "@mui/material/Typography";
 import { MEMPOOL_FEE_SPIKE, type MemPoolFeeSpikePayload } from "../../domain/events";
 import { useDomainEvents } from "../../hooks/useDomainEvents";
 
@@ -23,23 +26,37 @@ export function MempoolWidget() {
     return null;
   }, [events]);
 
-  if (!latest) {
-    return (
-      <div className="mempool-widget mempool-widget--empty">
-        <h3>Mempool fee rate</h3>
-        <p>No fee spike observed yet.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mempool-widget">
-      <h3>Mempool fee rate</h3>
-      <p className="mempool-widget__rate">{latest.payload.feeRateSatPerVb.toFixed(1)} sat/vB</p>
-      <p className="mempool-widget__delta">
-        {latest.payload.deltaPct.toFixed(1)}% above baseline ({latest.payload.baselineSatPerVb.toFixed(1)} sat/vB)
-      </p>
-      <time dateTime={latest.occurredAt.toISOString()}>{latest.occurredAt.toLocaleTimeString()}</time>
-    </div>
+    <Card variant="outlined" sx={{ height: "100%" }}>
+      <CardContent>
+        <Typography variant="h2" component="h3" gutterBottom>
+          Mempool fee rate
+        </Typography>
+
+        {!latest ? (
+          <Typography variant="body2" color="text.secondary">
+            No fee spike observed yet.
+          </Typography>
+        ) : (
+          <>
+            <Typography variant="h4" color="primary" fontWeight={700}>
+              {latest.payload.feeRateSatPerVb.toFixed(1)} sat/vB
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {latest.payload.deltaPct.toFixed(1)}% above baseline (
+              {latest.payload.baselineSatPerVb.toFixed(1)} sat/vB)
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="time"
+              dateTime={latest.occurredAt.toISOString()}
+            >
+              {latest.occurredAt.toLocaleTimeString()}
+            </Typography>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
